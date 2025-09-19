@@ -45,8 +45,8 @@ const BRAND = {
   name: "Induengicons",
   tagline: "Engineering. Software. Outcomes.",
   email: "kanhaiyasingh2102@gmail.com",
-  phone: "+91-00000-00000", // replace
-  gstin: "GSTIN: XXAAAAA0000A1Z5", // replace
+  phone: "+91-98765-43210", // Update with your actual phone number
+  gstin: "07AABCI1681G1Z0", // Update with your actual GSTIN
   regLine: "DPIIT Startup • Udyam (MSE) Registered",
   locations: "Bihar & Pan-India • Remote/Onsite",
 };
@@ -1546,7 +1546,7 @@ function TenderSection({ activeDivision }: { activeDivision: string }) {
         <div className="mt-6 grid gap-4 sm:gap-6 lg:grid-cols-3">
           <ul className="rounded-xl border p-4 text-sm">
             <li className="mb-2 font-semibold">Company & Compliance</li>
-            <li>Partnership Deed, PAN, {BRAND.gstin}</li>
+            <li>Partnership Deed, PAN, GSTIN: {BRAND.gstin}</li>
             <li>DPIIT Startup, Udyam (MSE)</li>
             <li>Bank details & cancelled cheque</li>
             <li>Authorized Signatory</li>
@@ -1716,7 +1716,7 @@ function AboutSection() {
                 Certifications & Registrations
               </h4>
               <div className="flex flex-wrap gap-2">
-                {["DPIIT Startup", "Udyam (MSE)", BRAND.gstin].map((cert) => (
+                {["DPIIT Startup", "Udyam (MSE)", `GSTIN: ${BRAND.gstin}`].map((cert) => (
                   <span key={cert} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white text-indigo-700 border border-indigo-200">
                     {cert}
                   </span>
@@ -1780,7 +1780,8 @@ function ContactSection() {
             </p>
           </div>
           <p className="mt-6 text-xs text-gray-600 sm:text-sm">
-            Address (update): Bihar, India • Also available remote across India.
+            <strong>Registered Office:</strong> Bihar, India<br />
+            <strong>Service Areas:</strong> Pan-India (Remote & On-site available)
           </p>
           <p className="mt-1 text-xs text-gray-600 sm:text-sm">{BRAND.regLine}</p>
         </div>
@@ -1877,7 +1878,7 @@ function Footer() {
             </div>
             <p className="mt-1 text-xs sm:text-sm">{BRAND.tagline}</p>
             <p className="mt-1 text-xs sm:text-sm">{BRAND.regLine}</p>
-            <p className="mt-1 text-xs sm:text-sm">{BRAND.gstin}</p>
+            <p className="mt-1 text-xs sm:text-sm">GSTIN: {BRAND.gstin}</p>
           </div>
           <div className="flex flex-wrap gap-3 sm:gap-6">
             <a className="hover:underline" href="#/software">Software Division</a>
