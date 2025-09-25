@@ -8,7 +8,11 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "npx tsx scripts/seed-data.ts",
-    "seed-auth": "npx tsx scripts/seed-auth.ts"
+    "seed-auth": "npx tsx scripts/seed-auth.ts",
+    "git:setup": "./github-setup.sh",
+    "git:push": "./github-setup.sh push origin main",
+    "git:pull": "./github-setup.sh pull origin main",
+    "git:fetch": "./github-setup.sh fetch origin"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
