@@ -309,7 +309,7 @@ export default function InduengiconsSite() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      <TopBar route={route} />
+      <TopBar />
       <Nav 
         route={route} 
         setRoute={setRoute} 
@@ -375,7 +375,7 @@ export default function InduengiconsSite() {
   );
 }
 
-function TopBar({ route }: { route: string }) {
+function TopBar() {
   return (
     <div className="w-full border-b bg-gradient-to-r from-slate-50 via-blue-50 to-indigo-50 backdrop-blur-lg border-white/20">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 text-xs sm:px-6 sm:py-3 sm:text-sm">
@@ -541,6 +541,14 @@ function Nav({
               className="hidden rounded-2xl border-2 border-indigo-200 bg-gradient-to-r from-white to-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 shadow-lg transition-all duration-300 hover:scale-105 hover:border-indigo-300 hover:shadow-xl hover:from-indigo-50 hover:to-purple-50 sm:block"
             >
               💼 Request Proposal
+            </a>
+            <a
+              href="/admin/login"
+              className="hidden sm:inline-flex items-center gap-2 rounded-2xl border-2 border-slate-300 bg-gradient-to-r from-slate-800 to-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:border-slate-400 hover:shadow-xl hover:from-slate-700 hover:to-slate-800"
+              title="Admin Portal Login"
+            >
+              <Shield className="h-4 w-4" />
+              Admin
             </a>
             <a
               href={route === "software" ? "#/civil" : route === "civil" ? "#/software" : "#/software"}
@@ -733,6 +741,14 @@ function Nav({
                     Call
                   </a>
                 </div>
+
+                <a
+                  href="/admin/login"
+                  className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-slate-800 to-slate-900 px-4 py-2 text-sm font-medium text-white transition-all active:scale-95"
+                >
+                  <Shield className="h-4 w-4" />
+                  Admin Portal
+                </a>
               </div>
             </div>
           </div>
@@ -1967,6 +1983,14 @@ function Footer() {
             <a className="hover:underline" href="#/civil">Civil & Railway Division</a>
             <a className="hover:underline" href="#tenders">Tender Kit</a>
             <a className="hover:underline" href="#contact">Contact</a>
+            <a 
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-gradient-to-r from-slate-800 to-slate-900 text-white text-xs font-medium hover:from-slate-700 hover:to-slate-800 transition-all duration-200 hover:shadow-md" 
+              href="/admin/login" 
+              title="Admin Portal Login"
+            >
+              <Shield className="h-3 w-3" />
+              Admin Portal
+            </a>
           </div>
         </div>
         <p className="mt-4 text-xs text-gray-500 sm:mt-6">© {new Date().getFullYear()} {BRAND.name}. All rights reserved.</p>
