@@ -153,7 +153,7 @@ export default function TransactionForm({
     try {
       const [projectsRes, categoriesRes] = await Promise.all([
         fetch('/api/admin/accounting/projects'),
-        fetch(`/api/admin/accounting/${type === 'income' ? 'transaction-categories' : 'expense-categories'}`)
+        fetch('/api/admin/accounting/transaction-categories')
       ])
 
       if (projectsRes.ok) {
@@ -163,7 +163,11 @@ export default function TransactionForm({
 
       if (categoriesRes.ok) {
         const categoriesData = await categoriesRes.json()
-        setCategories(categoriesData.categories)
+        // Filter categories based on transaction type if needed
+        const filteredCategories = type === 'income' 
+          ? categoriesData.categories.filter((cat: Category) => cat.type === 'revenue')
+          : categoriesData.categories.filter((cat: Category) => cat.type === 'expense')
+        setCategories(filteredCategories.length > 0 ? filteredCategories : categoriesData.categories)
       }
     } catch (error) {
       console.error('Failed to load initial data:', error)
@@ -197,7 +201,10 @@ export default function TransactionForm({
         body: JSON.stringify({
           ...formData,
           type,
-          amount: parseFloat(formData.amount)
+          amount: parseFloat(formData.amount),
+          // Map categoryId to transactionCategoryId for API compatibility
+          transactionCategoryId: formData.categoryId,
+          categoryId: undefined // Remove the old field
         })
       })
 

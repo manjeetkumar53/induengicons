@@ -102,7 +102,47 @@ LRANGE contact:submissions 0 -1
 GET contact:1758294264701
 ```
 
-## 🚀 Getting Started
+## � Test Credentials
+
+### **Development Login Credentials**
+
+The application comes pre-seeded with sample users for testing purposes:
+
+#### **Admin User**
+- **Username**: `admin`
+- **Password**: `Admin@123456`
+- **Role**: Administrator
+- **Email**: `admin@induengicons.com`
+- **Access**: Full system access with all privileges
+
+#### **Manager User**
+- **Username**: `manager`
+- **Password**: `Manager@123`
+- **Role**: Manager
+- **Email**: `manager@induengicons.com`
+- **Access**: Project management and oversight capabilities
+
+#### **Accountant User**
+- **Username**: `accountant`
+- **Password**: `Accountant@123`
+- **Role**: Accountant
+- **Email**: `accountant@induengicons.com`
+- **Access**: Financial data and transaction management
+
+### **Sample Data Available**
+
+With these credentials, you can access:
+- **2 Companies**: Indueng Icons Pvt Ltd, TechSolutions Ltd
+- **2 Projects**: Mobile App Development, Website Redesign
+- **9 Categories**: Transaction and expense categories
+- **5 Sample Transactions**: Ready for testing accounting features
+
+### **Database Access**
+- **MongoDB Atlas**: Pre-configured with sample data
+- **Connection**: Automatically established via environment variables
+- **Collections**: Users, Companies, Projects, Categories, Transactions
+
+## �🚀 Getting Started
 
 ### **Prerequisites**
 - Node.js 18+ 

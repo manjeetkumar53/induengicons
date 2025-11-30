@@ -14,7 +14,9 @@ import {
   Shield,
   ChevronRight,
   Activity,
-  Calculator
+  Calculator,
+  Tag,
+  FolderPlus
 } from 'lucide-react'
 
 interface ContactSubmission {
@@ -299,6 +301,28 @@ export default function AdminDashboard() {
                   <div className="flex items-center">
                     <Calculator className="h-5 w-5 text-green-600 mr-3" />
                     <span className="text-sm font-medium text-gray-900">Accounting System</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                </button>
+
+                <button
+                  onClick={() => router.push('/admin/categories')}
+                  className="w-full flex items-center justify-between p-3 text-left bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 rounded-lg transition-colors border border-purple-200"
+                >
+                  <div className="flex items-center">
+                    <Tag className="h-5 w-5 text-purple-600 mr-3" />
+                    <span className="text-sm font-medium text-gray-900">Manage Categories</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                </button>
+
+                <button
+                  onClick={() => router.push('/admin/projects')}
+                  className="w-full flex items-center justify-between p-3 text-left bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 rounded-lg transition-colors border border-blue-200"
+                >
+                  <div className="flex items-center">
+                    <FolderPlus className="h-5 w-5 text-blue-600 mr-3" />
+                    <span className="text-sm font-medium text-gray-900">Manage Projects</span>
                   </div>
                   <ChevronRight className="h-4 w-4 text-gray-400" />
                 </button>

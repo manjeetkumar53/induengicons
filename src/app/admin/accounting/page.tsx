@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  TrendingUp,
+  TrendingDown,
   BarChart3,
   ArrowLeft,
   LogOut,
@@ -14,18 +14,19 @@ import {
   FileText,
   Wallet,
   Building2,
-  Activity
+  Activity,
+  Sparkles
 } from 'lucide-react'
 import IncomeInput from '@/components/IncomeInput'
 import ExpenseOutput from '@/components/ExpenseOutput'
 import AllocationManager from '@/components/AllocationManager'
 import ReportsManager from '@/components/ReportsManager'
-import UnifiedAccountingDashboard from '@/components/accounting/AccountingDashboard'
 import IncomeGrid from '@/components/accounting/IncomeGrid'
 import ExpenseGrid from '@/components/accounting/ExpenseGrid'
 import AllocationGrid from '@/components/accounting/AllocationGrid'
-import ReportsGrid from '@/components/accounting/ReportsGrid'
+import ReportsDashboard from '@/components/accounting/ReportsDashboard'
 import UnifiedTransactionGrid from '@/components/accounting/UnifiedTransactionGrid'
+import { AIChatInterface } from '@/components/ai/AIChatInterface'
 
 
 
@@ -36,7 +37,7 @@ interface DashboardStats {
   activeProjects: number
 }
 
-type AccountingSection = 'overview' | 'unified' | 'transactions' | 'input' | 'input-grid' | 'output' | 'output-grid' | 'allocation' | 'allocation-grid' | 'reports' | 'reports-grid'
+type AccountingSection = 'transactions' | 'input-grid' | 'output-grid' | 'allocation-grid' | 'reports-grid' | 'ai-assistant' | 'input' | 'output' | 'allocation' | 'reports'
 
 export default function AccountingDashboard() {
   const { user, isLoading, logout } = useAuth()
@@ -109,53 +110,46 @@ export default function AccountingDashboard() {
 
   const sections = [
     {
-      id: 'overview' as AccountingSection,
-      title: 'Overview',
-      icon: BarChart3,
-      description: 'Financial summary and quick stats',
-      color: 'bg-blue-500'
-    },
-    {
       id: 'transactions' as AccountingSection,
       title: 'Transactions',
       icon: Activity,
-      description: 'Unified transaction management',
+      description: 'All transactions',
       color: 'bg-indigo-500'
     },
     {
-      id: 'unified' as AccountingSection,
-      title: 'Dashboard',
-      icon: Building2,
-      description: 'Modern dashboard view',
-      color: 'bg-purple-500'
-    },
-    {
       id: 'input-grid' as AccountingSection,
-      title: 'Income Grid',
+      title: 'Income',
       icon: TrendingUp,
-      description: 'Tabular income management',
+      description: 'Income management',
       color: 'bg-green-500'
     },
     {
       id: 'output-grid' as AccountingSection,
-      title: 'Expense Grid',
+      title: 'Expenses',
       icon: TrendingDown,
-      description: 'Tabular expense tracking',
+      description: 'Expense tracking',
       color: 'bg-red-500'
     },
     {
       id: 'allocation-grid' as AccountingSection,
-      title: 'Allocation Grid',
+      title: 'Allocations',
       icon: Target,
-      description: 'Fund allocation table',
+      description: 'Fund allocation',
       color: 'bg-purple-500'
     },
     {
       id: 'reports-grid' as AccountingSection,
-      title: 'Reports Grid',
+      title: 'Reports',
       icon: FileText,
-      description: 'Analytics & reports table',
+      description: 'Analytics & reports',
       color: 'bg-orange-500'
+    },
+    {
+      id: 'ai-assistant' as AccountingSection,
+      title: 'AI Assistant',
+      icon: Sparkles,
+      description: 'Ask questions about your finances',
+      color: 'bg-blue-500'
     }
   ]
 
@@ -195,7 +189,7 @@ export default function AccountingDashboard() {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">{user?.username}</p>
@@ -225,16 +219,15 @@ export default function AccountingDashboard() {
             {sections.map((section) => {
               const Icon = section.icon
               const isActive = activeSection === section.id
-              
+
               return (
                 <button
                   key={section.id}
                   onClick={() => setActiveSection(section.id)}
-                  className={`flex flex-col items-center min-w-[100px] sm:min-w-[120px] px-3 py-3 rounded-lg transition-all whitespace-nowrap ${
-                    isActive
-                      ? 'bg-indigo-50 text-indigo-700 border-2 border-indigo-200'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                  className={`flex flex-col items-center min-w-[100px] sm:min-w-[120px] px-3 py-3 rounded-lg transition-all whitespace-nowrap ${isActive
+                    ? 'bg-indigo-50 text-indigo-700 border-2 border-indigo-200'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
                 >
                   <div className={`p-2 rounded-lg mb-2 ${isActive ? section.color : 'bg-gray-100'}`}>
                     <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-gray-600'}`} />
@@ -251,229 +244,89 @@ export default function AccountingDashboard() {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeSection === 'overview' && (
-          <div className="space-y-6">
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Wallet className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Income</p>
-                    <p className="text-2xl font-bold text-gray-900">₹{dashboardStats.totalIncome.toLocaleString('en-IN')}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-red-100 rounded-lg">
-                    <TrendingDown className="h-6 w-6 text-red-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Expenses</p>
-                    <p className="text-2xl font-bold text-gray-900">₹{dashboardStats.totalExpenses.toLocaleString('en-IN')}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Building2 className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Active Projects</p>
-                    <p className="text-2xl font-bold text-gray-900">{dashboardStats.activeProjects}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Activity className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Net Amount</p>
-                    <p className={`text-2xl font-bold ${dashboardStats.netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ₹{dashboardStats.netAmount.toLocaleString('en-IN')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <button
-                  onClick={() => setActiveSection('transactions')}
-                  className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-colors"
-                >
-                  <div className="text-center">
-                    <Activity className="h-8 w-8 text-indigo-600 mx-auto mb-2" />
-                    <span className="text-sm font-medium text-gray-900">All Transactions</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('input-grid')}
-                  className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
-                >
-                  <div className="text-center">
-                    <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                    <span className="text-sm font-medium text-gray-900">Income Grid</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('output-grid')}
-                  className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-red-500 hover:bg-red-50 transition-colors"
-                >
-                  <div className="text-center">
-                    <TrendingDown className="h-8 w-8 text-red-600 mx-auto mb-2" />
-                    <span className="text-sm font-medium text-gray-900">Expense Grid</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('allocation-grid')}
-                  className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors"
-                >
-                  <div className="text-center">
-                    <Target className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                    <span className="text-sm font-medium text-gray-900">Allocation Grid</span>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Getting Started */}
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-6 text-white">
-              <h3 className="text-lg font-medium mb-2">Getting Started</h3>
-              <p className="text-indigo-100 mb-4">
-                Welcome to your accounting system! Start by adding your first income or expense transaction.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setActiveSection('transactions')}
-                  className="bg-white text-indigo-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-colors"
-                >
-                  All Transactions
-                </button>
-                <button
-                  onClick={() => setActiveSection('unified')}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors border border-indigo-500"
-                >
-                  Dashboard View
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
+      <main className={(activeSection === 'transactions' || activeSection === 'input-grid' || activeSection === 'output-grid' || activeSection === 'allocation-grid' || activeSection === 'reports-grid' || activeSection === 'ai-assistant') ? 'h-[calc(100vh-9rem)] px-4 sm:px-6 lg:px-8' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6'}>
         {/* Main Transaction Grid */}
         {activeSection === 'transactions' && (
-          <UnifiedTransactionGrid userId={user?.id || ''} />
-        )}
-
-        {/* Unified Dashboard Section */}
-        {activeSection === 'unified' && (
-          <UnifiedAccountingDashboard userId={user?.id || ''} />
+          <div className="h-full">
+            <UnifiedTransactionGrid />
+          </div>
         )}
 
         {/* Grid Views - Full Width */}
         {activeSection === 'input-grid' && (
-          <IncomeGrid 
-            onAddTransaction={() => setActiveSection('input')}
-            onEditTransaction={(transaction) => {
-              console.log('Edit transaction:', transaction)
-              // Could open a modal or navigate to edit form
-            }}
-            onViewReceipt={(transaction) => {
-              console.log('View receipt:', transaction)
-              // Could open receipt viewer
-            }}
-          />
+          <div className="h-full">
+            <IncomeGrid
+              onAddTransaction={() => setActiveSection('input')}
+              onEditTransaction={(transaction) => {
+                // Inline editing is handled by the grid component
+              }}
+              onViewReceipt={(transaction) => {
+                // Receipt viewer can be implemented here
+              }}
+            />
+          </div>
         )}
 
         {activeSection === 'output-grid' && (
-          <ExpenseGrid 
-            onAddTransaction={() => setActiveSection('output')}
-            onEditTransaction={(transaction) => {
-              console.log('Edit transaction:', transaction)
-              // Could open a modal or navigate to edit form
-            }}
-            onViewReceipt={(transaction) => {
-              console.log('View receipt:', transaction)
-              // Could open receipt viewer
-            }}
-          />
+          <div className="h-full">
+            <ExpenseGrid
+              onAddTransaction={() => setActiveSection('output')}
+              onEditTransaction={(transaction) => {
+                // Inline editing is handled by the grid component
+              }}
+              onViewReceipt={(transaction) => {
+                // Receipt viewer can be implemented here
+              }}
+            />
+          </div>
         )}
 
         {activeSection === 'allocation-grid' && (
-          <AllocationGrid 
-            onAddAllocation={() => setActiveSection('allocation')}
-            onEditAllocation={(allocation) => {
-              console.log('Edit allocation:', allocation)
-              // Could open a modal or navigate to edit form
-            }}
-            onViewDetails={(allocation) => {
-              console.log('View allocation details:', allocation)
-              // Could open details modal
-            }}
-          />
+          <div className="h-full">
+            <AllocationGrid />
+          </div>
         )}
 
         {activeSection === 'reports-grid' && (
-          <ReportsGrid 
-            onGenerateReport={() => setActiveSection('reports')}
-            onViewReport={(report) => {
-              console.log('View report:', report)
-              // Could open report viewer
-            }}
-            onExportReport={(report, format) => {
-              console.log('Export report:', report, format)
-              // Could trigger export download
-            }}
-          />
+          <div className="h-full">
+            <ReportsDashboard />
+          </div>
         )}
 
-        {/* Traditional Form Views */}
+        {activeSection === 'ai-assistant' && (
+          <div className="h-full flex items-center justify-center p-6">
+            <AIChatInterface />
+          </div>
+        )}
         {activeSection === 'input' && (
           <div className="bg-white rounded-lg shadow p-6">
-            <IncomeInput 
-              userId={user?.id || ''} 
+            <IncomeInput
+              userId={user?.id || ''}
               onSuccess={() => {
                 loadDashboardData()
-              }} 
+              }}
             />
           </div>
         )}
 
         {activeSection === 'output' && (
           <div className="bg-white rounded-lg shadow p-6">
-            <ExpenseOutput 
-              userId={user?.id || ''} 
+            <ExpenseOutput
+              userId={user?.id || ''}
               onSuccess={() => {
                 loadDashboardData()
-              }} 
+              }}
             />
           </div>
         )}
 
         {activeSection === 'allocation' && (
           <div className="bg-white rounded-lg shadow p-6">
-            <AllocationManager 
-              userId={user?.id || ''} 
+            <AllocationManager
+              userId={user?.id || ''}
               onSuccess={() => {
                 loadDashboardData()
-              }} 
+              }}
             />
           </div>
         )}
@@ -484,37 +337,36 @@ export default function AccountingDashboard() {
           </div>
         )}
 
-        {activeSection !== 'overview' && 
-         activeSection !== 'transactions' &&
-         activeSection !== 'unified' && 
-         activeSection !== 'input-grid' && 
-         activeSection !== 'output-grid' && 
-         activeSection !== 'allocation-grid' && 
-         activeSection !== 'reports-grid' && 
-         activeSection !== 'input' && 
-         activeSection !== 'output' && 
-         activeSection !== 'allocation' && 
-         activeSection !== 'reports' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
-                <FileText className="mx-auto h-12 w-12" />
+        {activeSection !== 'transactions' &&
+          activeSection !== 'input-grid' &&
+          activeSection !== 'output-grid' &&
+          activeSection !== 'allocation-grid' &&
+          activeSection !== 'reports-grid' &&
+          activeSection !== 'input' &&
+          activeSection !== 'output' &&
+          activeSection !== 'allocation' &&
+          activeSection !== 'reports' &&
+          activeSection !== 'ai-assistant' && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-4">
+                  <FileText className="mx-auto h-12 w-12" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2 capitalize">
+                  {activeSection} Section
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  This section is under development. Coming soon!
+                </p>
+                <button
+                  onClick={() => setActiveSection('transactions')}
+                  className="text-indigo-600 hover:text-indigo-500 text-sm font-medium"
+                >
+                  ← Back to Transactions
+                </button>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2 capitalize">
-                {activeSection} Section
-              </h3>
-              <p className="text-gray-600 mb-4">
-                This section is under development. Coming soon!
-              </p>
-              <button
-                onClick={() => setActiveSection('overview')}
-                className="text-indigo-600 hover:text-indigo-500 text-sm font-medium"
-              >
-                ← Back to Overview
-              </button>
             </div>
-          </div>
-        )}
+          )}
       </main>
     </div>
   )

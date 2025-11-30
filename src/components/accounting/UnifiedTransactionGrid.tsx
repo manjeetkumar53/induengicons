@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import AdvancedDataGrid, { GridColumn, GridRow } from './AdvancedDataGrid'
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
+import QuickCategoryModal from '../modals/QuickCategoryModal'
+import QuickProjectModal from '../modals/QuickProjectModal'
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
   Calendar,
   Tag,
   User,
@@ -43,6 +45,11 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Quick creation modals
+  const [showCategoryModal, setShowCategoryModal] = useState(false)
+  const [showProjectModal, setShowProjectModal] = useState(false)
+  const [pendingTransactionData, setPendingTransactionData] = useState<any>(null)
+
   // Stats
   const stats = {
     totalIncome: transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0),
@@ -77,7 +84,17 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
       const response = await fetch('/api/admin/accounting/transactions')
       if (!response.ok) throw new Error('Failed to load transactions')
       const data = await response.json()
-      setTransactions(data.transactions || [])
+      // Normalize source/vendor to always have a value in 'source' for the grid
+      // Also ensure each transaction has a proper string ID
+      const normalizedTransactions = (data.transactions || []).map((t: any, index: number) => ({
+        ...t,
+        id: t._id || t.id || `transaction-${index}`, // Ensure we have a unique string ID
+        source: t.source || t.vendor || '',
+        category: t.categoryId?.name || t.categoryName || '',
+        project: t.projectId?.name || t.projectName || ''
+      }))
+      console.log('Loaded transactions with IDs:', normalizedTransactions.slice(0, 3).map((t: Transaction) => ({ id: t.id, description: t.description })))
+      setTransactions(normalizedTransactions)
     } catch (err) {
       console.error('Failed to load transactions:', err)
       throw err
@@ -98,7 +115,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
 
   const loadCategories = async () => {
     try {
-      const response = await fetch('/api/admin/accounting/categories')
+      const response = await fetch('/api/admin/accounting/transaction-categories')
       if (response.ok) {
         const data = await response.json()
         setCategories(data.categories || [])
@@ -111,31 +128,77 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
   // CRUD Operations
   const handleAdd = useCallback(async (newTransaction: Partial<Transaction>) => {
     try {
-      // Map form fields to API expected fields
-      const apiData = {
-        type: newTransaction.type,
-        amount: newTransaction.amount,
-        description: newTransaction.description,
-        date: newTransaction.date,
-        source: newTransaction.source,
-        paymentMethod: newTransaction.paymentMethod || 'other',
-        notes: newTransaction.notes,
-        tags: newTransaction.tags,
-        userId,
-        // Map project name to projectId
-        ...(newTransaction.project && { 
-          projectId: projects.find(p => p.name === newTransaction.project)?._id 
-        }),
-        // Map category based on transaction type
-        ...(newTransaction.category && newTransaction.type === 'income' && { 
-          transactionCategoryId: categories.find(c => c.name === newTransaction.category)?._id 
-        }),
-        ...(newTransaction.category && newTransaction.type === 'expense' && { 
-          expenseCategoryId: categories.find(c => c.name === newTransaction.category)?._id 
-        })
+      console.log('Received transaction data:', newTransaction)
+      console.log('Available categories:', categories)
+      console.log('Available projects:', projects)
+
+      // Ensure we have a category
+      let categoryId = null
+      if (newTransaction.category) {
+        // Try to find category by name
+        const foundCategory = categories.find(c => c.name === newTransaction.category)
+        if (foundCategory) {
+          categoryId = foundCategory._id
+        }
       }
 
-      console.log('Sending transaction data:', apiData)
+      // If no category found and we have categories available, use the first one as fallback
+      if (!categoryId && categories.length > 0) {
+        categoryId = categories[0]._id
+        console.warn('No category provided or found, using first available category:', categories[0].name)
+      }
+
+      // If still no category, this is an error
+      if (!categoryId) {
+        throw new Error('No transaction category available. Please ensure categories are loaded.')
+      }
+
+      // Map project name to projectId
+      let projectId = null
+      if (newTransaction.project) {
+        const foundProject = projects.find(p => p.name === newTransaction.project)
+        if (foundProject) {
+          projectId = foundProject._id
+        }
+      }
+
+      // Prepare the API data with all required fields
+      const apiData = {
+        type: newTransaction.type,
+        amount: Number(newTransaction.amount),
+        description: newTransaction.description?.trim() || '',
+        date: newTransaction.date,
+        transactionCategoryId: categoryId,
+        paymentMethod: newTransaction.paymentMethod || 'cash',
+        ...(projectId && { projectId }),
+        ...(newTransaction.source && { source: newTransaction.source.trim() }),
+        ...(newTransaction.receiptNumber && { receiptNumber: newTransaction.receiptNumber.trim() }),
+        ...(newTransaction.notes && { notes: newTransaction.notes.trim() }),
+        ...(newTransaction.tags && { tags: newTransaction.tags }),
+        ...(userId && { userId })
+      }
+
+      console.log('Prepared API data:', apiData)
+
+      // Validate required fields before sending
+      const requiredFields = {
+        type: apiData.type,
+        amount: apiData.amount,
+        description: apiData.description,
+        date: apiData.date,
+        transactionCategoryId: apiData.transactionCategoryId,
+        paymentMethod: apiData.paymentMethod
+      }
+
+      const missingFields = Object.entries(requiredFields)
+        .filter(([key, value]) => !value || (key === 'amount' && isNaN(value as number)))
+        .map(([key]) => key)
+
+      if (missingFields.length > 0) {
+        console.error('Missing required fields:', missingFields)
+        console.error('Required fields validation:', requiredFields)
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`)
+      }
 
       const response = await fetch('/api/admin/accounting/transactions', {
         method: 'POST',
@@ -149,9 +212,10 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
         const errorData = await response.json().catch(() => ({}))
         const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`
         console.error('API Error:', errorMessage, 'Status:', response.status)
+        console.error('Sent data:', apiData)
         throw new Error(`Failed to create transaction: ${errorMessage}`)
       }
-      
+
       const result = await response.json()
       // Refresh the data after successful creation
       await loadTransactions()
@@ -166,25 +230,122 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
     }
   }, [userId, projects, categories, loadTransactions])
 
+  // Quick creation handlers
+  const handleCategoryCreated = useCallback((newCategory: any) => {
+    setCategories(prev => [...prev, newCategory])
+    setShowCategoryModal(false)
+
+    // If we have pending transaction data, continue with it
+    if (pendingTransactionData) {
+      const updatedData = { ...pendingTransactionData, category: newCategory.name }
+      handleAdd(updatedData)
+      setPendingTransactionData(null)
+    }
+  }, [pendingTransactionData])
+
+  const handleProjectCreated = useCallback((newProject: any) => {
+    console.log('Project created, updating state:', newProject)
+    setProjects(prev => [...prev, newProject])
+    setShowProjectModal(false)
+
+    // If we have pending transaction data, continue with it
+    if (pendingTransactionData) {
+      const updatedData = { ...pendingTransactionData, project: newProject.name }
+      handleAdd(updatedData)
+      setPendingTransactionData(null)
+    }
+  }, [pendingTransactionData])
+
+  const handleAddWithQuickCreate = useCallback(async (newTransaction: Partial<Transaction>) => {
+    // Check if category exists when user typed a new category name
+    const categoryExists = categories.find(c => c.name.toLowerCase() === newTransaction.category?.toLowerCase())
+    const projectExists = newTransaction.project ? projects.find(p => p.name.toLowerCase() === newTransaction.project?.toLowerCase()) : true
+
+    // If category doesn't exist and it's not empty, ask to create it
+    if (newTransaction.category && !categoryExists) {
+      if (confirm(`Category "${newTransaction.category}" doesn't exist. Would you like to create it?`)) {
+        setPendingTransactionData(newTransaction)
+        setShowCategoryModal(true)
+        return
+      } else {
+        // User declined to create category, remove it from transaction
+        newTransaction = { ...newTransaction, category: categories.length > 0 ? categories[0].name : '' }
+      }
+    }
+
+    // If project doesn't exist and it's not empty, ask to create it
+    if (newTransaction.project && !projectExists) {
+      if (confirm(`Project "${newTransaction.project}" doesn't exist. Would you like to create it?`)) {
+        setPendingTransactionData(newTransaction)
+        setShowProjectModal(true)
+        return
+      } else {
+        // User declined to create project, remove it from transaction
+        newTransaction = { ...newTransaction, project: '' }
+      }
+    }
+
+    // Proceed with normal transaction creation
+    return handleAdd(newTransaction)
+  }, [categories, projects, handleAdd])
+
   const handleEdit = useCallback(async (id: string, updatedData: Partial<Transaction>) => {
     try {
+      // Find original transaction to check type if needed
+      const originalTransaction = transactions.find(t => t.id === id)
+
+      // Handle source/vendor mapping
+      // If 'source' was edited, we might need to send it as 'vendor' if it's an expense
+      // or 'source' if it's an income.
+      // However, the API might expect specific fields.
+      // Let's assume the API handles 'source' and 'vendor' separately.
+
+      const apiData: any = { ...updatedData }
+
+      // If source is present in updatedData, ensure it's passed as source
+      // The backend uses 'source' for both income (payer) and expense (vendor)
+      if ('source' in updatedData) {
+        apiData.source = updatedData.source
+      }
+
+      // Handle category mapping (name -> id)
+      if (updatedData.category) {
+        const foundCategory = categories.find(c => c.name === updatedData.category)
+        if (foundCategory) {
+          apiData.transactionCategoryId = foundCategory._id
+          delete apiData.category
+        }
+      }
+
+      // Handle project mapping (name -> id)
+      if (updatedData.project) {
+        const foundProject = projects.find(p => p.name === updatedData.project)
+        if (foundProject) {
+          apiData.projectId = foundProject._id
+          delete apiData.project
+        } else if (updatedData.project === '') {
+          apiData.projectId = null
+          delete apiData.project
+        }
+      }
+
       const response = await fetch(`/api/admin/accounting/transactions/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updatedData)
+        body: JSON.stringify(apiData)
       })
 
       if (!response.ok) throw new Error('Failed to update transaction')
-      
+
       // Refresh data
       await loadTransactions()
     } catch (err) {
       console.error('Failed to edit transaction:', err)
       throw new Error('Failed to update transaction')
     }
-  }, [])
+  }, [transactions, categories, projects])
 
   const handleDelete = useCallback(async (id: string) => {
     try {
@@ -193,7 +354,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
       })
 
       if (!response.ok) throw new Error('Failed to delete transaction')
-      
+
       // Refresh data
       await loadTransactions()
     } catch (err) {
@@ -205,13 +366,13 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
   const handleBulkDelete = useCallback(async (ids: string[]) => {
     try {
       await Promise.all(
-        ids.map(id => 
+        ids.map(id =>
           fetch(`/api/admin/accounting/transactions/${id}`, {
             method: 'DELETE'
           })
         )
       )
-      
+
       // Refresh data
       await loadTransactions()
     } catch (err) {
@@ -221,11 +382,11 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
   }, [])
 
   // Column definitions
-  const columns: GridColumn[] = [
+  const columns: GridColumn[] = useMemo(() => [
     {
       key: 'type',
       title: 'Type',
-      type: 'select',
+      type: 'badge',
       width: '120px',
       editable: true,
       sortable: true,
@@ -234,23 +395,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
       options: [
         { value: 'income', label: 'Income', color: 'bg-green-100 text-green-800' },
         { value: 'expense', label: 'Expense', color: 'bg-red-100 text-red-800' }
-      ],
-      render: (value) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          value === 'income' 
-            ? 'bg-green-100 text-green-800' 
-            : value === 'expense' 
-            ? 'bg-red-100 text-red-800'
-            : 'bg-gray-100 text-gray-800'
-        }`}>
-          {value === 'income' ? (
-            <TrendingUp className="w-3 h-3 mr-1" />
-          ) : value === 'expense' ? (
-            <TrendingDown className="w-3 h-3 mr-1" />
-          ) : null}
-          {value === 'income' ? 'Income' : value === 'expense' ? 'Expense' : value || 'Unknown'}
-        </span>
-      )
+      ]
     },
     {
       key: 'date',
@@ -293,34 +438,31 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
     {
       key: 'category',
       title: 'Category',
-      type: 'select',
+      type: 'creatable-select',
       width: '150px',
       editable: true,
       sortable: true,
       filterable: true,
+      required: true,
       options: categories.map(c => ({ value: c.name, label: c.name })),
-      render: (value) => (
-        <span className="inline-flex items-center">
-          <Tag className="w-3 h-3 mr-1 text-gray-400" />
-          {value || '-'}
-        </span>
-      )
+      onCreate: (value) => {
+        setPendingTransactionData({ category: value })
+        setShowCategoryModal(true)
+      }
     },
     {
       key: 'project',
       title: 'Project',
-      type: 'select',
+      type: 'creatable-select',
       width: '150px',
       editable: true,
       sortable: true,
       filterable: true,
       options: projects.map(p => ({ value: p.name, label: p.name })),
-      render: (value) => (
-        <span className="inline-flex items-center">
-          <Building className="w-3 h-3 mr-1 text-gray-400" />
-          {value || '-'}
-        </span>
-      )
+      onCreate: (value) => {
+        setPendingTransactionData({ project: value })
+        setShowProjectModal(true)
+      }
     },
     {
       key: 'source',
@@ -330,13 +472,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
       editable: true,
       sortable: true,
       filterable: true,
-      placeholder: 'Enter source or vendor...',
-      render: (value, row) => (
-        <span className="inline-flex items-center">
-          <User className="w-3 h-3 mr-1 text-gray-400" />
-          {value || row.vendor || '-'}
-        </span>
-      )
+      placeholder: 'Enter source or vendor...'
     },
     {
       key: 'paymentMethod',
@@ -351,16 +487,12 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
         { value: 'cash', label: 'Cash' },
         { value: 'bank', label: 'Bank Transfer' },
         { value: 'upi', label: 'UPI' },
-        { value: 'card', label: 'Card' },
+        { value: 'card', label: 'Debit/Credit Card' },
         { value: 'cheque', label: 'Cheque' },
+        { value: 'neft', label: 'NEFT' },
+        { value: 'rtgs', label: 'RTGS' },
         { value: 'other', label: 'Other' }
-      ],
-      render: (value) => (
-        <span className="inline-flex items-center">
-          <CreditCard className="w-3 h-3 mr-1 text-gray-400" />
-          {value || '-'}
-        </span>
-      )
+      ]
     },
     {
       key: 'receiptNumber',
@@ -370,13 +502,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
       editable: true,
       sortable: true,
       filterable: true,
-      placeholder: 'Receipt number...',
-      render: (value) => (
-        <span className="inline-flex items-center">
-          <Receipt className="w-3 h-3 mr-1 text-gray-400" />
-          {value || '-'}
-        </span>
-      )
+      placeholder: 'Receipt number...'
     },
     {
       key: 'notes',
@@ -386,12 +512,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
       editable: true,
       sortable: false,
       filterable: true,
-      placeholder: 'Additional notes...',
-      render: (value) => (
-        <div className="truncate max-w-[180px]" title={value}>
-          {value || '-'}
-        </div>
-      )
+      placeholder: 'Additional notes...'
     },
     {
       key: 'createdAt',
@@ -402,29 +523,30 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
       sortable: true,
       render: (value) => value ? new Date(value).toLocaleDateString('en-IN') : '-'
     }
-  ]
+  ], [categories, projects])
 
   // Custom actions
   const customActions = [
     {
       label: 'View Receipt',
-      icon: <Receipt className="h-4 w-4" />,
-      action: (row: GridRow) => {
+      icon: Receipt,
+      onClick: (row: GridRow) => {
         console.log('View receipt for:', row)
         // Could open receipt viewer
       },
-      variant: 'secondary' as const
+      className: 'text-purple-600 hover:text-purple-900 p-1 rounded hover:bg-purple-50 transition-colors'
     }
   ]
 
-  // Default values for new transactions
-  const defaultValues = {
+  // Default values for new transactions - computed dynamically when categories are available
+  const defaultValues = useMemo(() => ({
     type: 'expense',
     date: new Date().toISOString().split('T')[0],
     paymentMethod: 'cash',
     amount: '',
-    description: ''
-  }
+    description: '',
+    category: categories.length > 0 ? categories[0].name : ''
+  }), [categories])
 
   return (
     <div className="space-y-6">
@@ -450,11 +572,10 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
           </div>
         </div>
 
-        <div className={`bg-gradient-to-r rounded-lg p-6 text-white ${
-          stats.netAmount >= 0 
-            ? 'from-blue-500 to-blue-600' 
-            : 'from-orange-500 to-orange-600'
-        }`}>
+        <div className={`bg-gradient-to-r rounded-lg p-6 text-white ${stats.netAmount >= 0
+          ? 'from-blue-500 to-blue-600'
+          : 'from-orange-500 to-orange-600'
+          }`}>
           <div className="flex items-center justify-between">
             <div>
               <p className={`text-sm ${stats.netAmount >= 0 ? 'text-blue-100' : 'text-orange-100'}`}>
@@ -462,9 +583,8 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
               </p>
               <p className="text-2xl font-bold">₹{stats.netAmount.toLocaleString('en-IN')}</p>
             </div>
-            <DollarSign className={`h-8 w-8 ${
-              stats.netAmount >= 0 ? 'text-blue-200' : 'text-orange-200'
-            }`} />
+            <DollarSign className={`h-8 w-8 ${stats.netAmount >= 0 ? 'text-blue-200' : 'text-orange-200'
+              }`} />
           </div>
         </div>
 
@@ -495,13 +615,34 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
         enableBulkActions={true}
         enableFullscreen={true}
         enableFilters={true}
-        onAdd={handleAdd}
+        onAdd={handleAddWithQuickCreate}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onBulkDelete={handleBulkDelete}
         onRefresh={loadAllData}
         customActions={customActions}
         defaultValues={defaultValues}
+      />
+
+      {/* Quick Creation Modals */}
+      <QuickCategoryModal
+        isOpen={showCategoryModal}
+        onClose={() => {
+          setShowCategoryModal(false)
+          setPendingTransactionData(null)
+        }}
+        onSave={handleCategoryCreated}
+        defaultType={pendingTransactionData?.type === 'income' ? 'revenue' : 'expense'}
+      />
+
+      <QuickProjectModal
+        isOpen={showProjectModal}
+        onClose={() => {
+          setShowProjectModal(false)
+          setPendingTransactionData(null)
+        }}
+        onSave={handleProjectCreated}
+        initialName={pendingTransactionData?.project || ''}
       />
     </div>
   )

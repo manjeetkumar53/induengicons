@@ -1,0 +1,72 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - button "Back to Dashboard" [ref=e7]:
+            - img [ref=e8]
+            - generic [ref=e10]: Back to Dashboard
+          - generic [ref=e12]:
+            - img [ref=e14]
+            - generic [ref=e16]:
+              - heading "Accounting System" [level=1] [ref=e17]
+              - paragraph [ref=e18]: Financial management & reporting
+        - generic [ref=e19]:
+          - generic [ref=e20]:
+            - paragraph [ref=e21]: admin
+            - paragraph [ref=e22]: admin
+          - button "Logout" [ref=e23]:
+            - img [ref=e24]
+            - generic [ref=e27]: Logout
+    - generic [ref=e30]:
+      - button "Transactions All transactions" [ref=e31]:
+        - img [ref=e33]
+        - generic [ref=e35]: Transactions
+        - generic [ref=e36]: All transactions
+      - button "Income Income management" [ref=e37]:
+        - img [ref=e39]
+        - generic [ref=e42]: Income
+        - generic [ref=e43]: Income management
+      - button "Expenses Expense tracking" [ref=e44]:
+        - img [ref=e46]
+        - generic [ref=e49]: Expenses
+        - generic [ref=e50]: Expense tracking
+      - button "Allocations Fund allocation" [ref=e51]:
+        - img [ref=e53]
+        - generic [ref=e57]: Allocations
+        - generic [ref=e58]: Fund allocation
+      - button "Reports Analytics & reports" [ref=e59]:
+        - img [ref=e61]
+        - generic [ref=e64]: Reports
+        - generic [ref=e65]: Analytics & reports
+    - main [ref=e66]:
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - heading "Financial Reports" [level=2] [ref=e70]
+          - paragraph [ref=e71]: Comprehensive analysis of your financial data.
+        - generic [ref=e73]:
+          - button "Profit & Loss" [ref=e74]:
+            - img [ref=e75]
+            - generic [ref=e78]: Profit & Loss
+          - button "Cash Flow" [ref=e79]:
+            - img [ref=e80]
+            - generic [ref=e83]: Cash Flow
+          - button "Income" [ref=e84]:
+            - img [ref=e85]
+            - generic [ref=e87]: Income
+          - button "Expenses" [ref=e88]:
+            - img [ref=e89]
+            - generic [ref=e92]: Expenses
+          - button "Summary" [ref=e93]:
+            - img [ref=e94]
+            - generic [ref=e96]: Summary
+          - button "AI Assistant" [active] [ref=e97]:
+            - img [ref=e98]
+            - generic [ref=e101]: AI Assistant
+  - button "Open Next.js Dev Tools" [ref=e107] [cursor=pointer]:
+    - img [ref=e108]
+  - alert [ref=e111]
+```

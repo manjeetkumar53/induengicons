@@ -43,12 +43,12 @@ async function seedAuthUsers() {
     }
 
     console.log('👤 Creating initial admin user...')
-    
+
     // Create admin user
     const adminUser = await createUser({
       username: 'admin',
       email: 'admin@induengicons.com',
-      password: 'Admin@123456',
+      password: process.env.ADMIN_PASSWORD || 'Admin@123456',
       firstName: 'System',
       lastName: 'Administrator',
       role: 'admin',
@@ -73,7 +73,7 @@ async function seedAuthUsers() {
       {
         username: 'manager',
         email: 'manager@induengicons.com',
-        password: 'Manager@123',
+        password: process.env.MANAGER_PASSWORD || 'Manager@123',
         firstName: 'Project',
         lastName: 'Manager',
         role: 'manager' as const,
@@ -87,7 +87,7 @@ async function seedAuthUsers() {
       {
         username: 'accountant',
         email: 'accountant@induengicons.com',
-        password: 'Accountant@123',
+        password: process.env.ACCOUNTANT_PASSWORD || 'Accountant@123',
         firstName: 'Senior',
         lastName: 'Accountant',
         role: 'accountant' as const,
@@ -101,7 +101,7 @@ async function seedAuthUsers() {
       {
         username: 'viewer',
         email: 'viewer@induengicons.com',
-        password: 'Viewer@123',
+        password: process.env.VIEWER_PASSWORD || 'Viewer@123',
         firstName: 'Report',
         lastName: 'Viewer',
         role: 'viewer' as const,

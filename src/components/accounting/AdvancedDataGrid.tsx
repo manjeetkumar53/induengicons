@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Save, 
-  X, 
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Save,
+  X,
   Search,
   Filter,
   ChevronLeft,
@@ -28,11 +28,12 @@ import {
   AlertCircle,
   Settings
 } from 'lucide-react'
+import CreatableCombobox from '../ui/CreatableCombobox'
 
 export interface GridColumn {
   key: string
   title: string
-  type: 'text' | 'number' | 'currency' | 'date' | 'select' | 'readonly' | 'badge'
+  type: 'text' | 'number' | 'currency' | 'date' | 'select' | 'creatable-select' | 'readonly' | 'badge'
   width?: string
   minWidth?: string
   editable?: boolean
@@ -43,20 +44,12 @@ export interface GridColumn {
   render?: (value: any, row: any, isEditing?: boolean) => React.ReactNode
   validate?: (value: any, row?: any) => string | null
   placeholder?: string
+  onCreate?: (value: string) => void
 }
 
 export interface GridRow {
   id: string
   [key: string]: any
-}
-
-interface InlineCellEditorProps {
-  column: GridColumn
-  value: any
-  row: GridRow
-  onSave: (newValue: any) => void
-  onCancel: () => void
-  isProcessing: boolean
 }
 
 interface QuickAddRowProps {
@@ -97,17 +90,16 @@ export interface AdvancedDataGridProps {
   onRefresh?: () => Promise<void>
   customActions?: {
     label: string
-    icon: React.ReactNode
-    action: (row: GridRow) => void
-    variant?: 'primary' | 'secondary' | 'danger'
+    icon: React.ComponentType<{ className?: string }>
+    onClick: (row: GridRow) => void
+    className?: string
   }[]
   defaultValues?: Partial<GridRow>
 }
 
 interface EditingState {
-  mode: 'none' | 'inline' | 'modal' | 'quickAdd'
+  mode: 'none' | 'row' | 'modal' | 'quickAdd'
   rowId?: string
-  field?: string
   data?: Partial<GridRow>
 }
 
@@ -123,9 +115,9 @@ export default function AdvancedDataGrid({
   enableAdd = true,
   enableEdit = true,
   enableDelete = true,
-  enableBulkActions = true,
-  enableFullscreen = true,
-  enableFilters = true,
+  enableBulkActions = false,
+  enableFullscreen = false,
+  enableFilters = false,
   onAdd,
   onEdit,
   onDelete,
@@ -163,7 +155,7 @@ export default function AdvancedDataGrid({
     // Apply column filters
     Object.entries(columnFilters).forEach(([key, filterValue]) => {
       if (filterValue) {
-        result = result.filter(row => 
+        result = result.filter(row =>
           String(row[key] || '').toLowerCase().includes(filterValue.toLowerCase())
         )
       }
@@ -172,19 +164,23 @@ export default function AdvancedDataGrid({
     // Apply sorting
     if (sortConfig) {
       result.sort((a, b) => {
-        const aValue = a[sortConfig.key]
-        const bValue = b[sortConfig.key]
-        
-        // Handle different data types
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-          return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue
+        let aVal = a[sortConfig.key]
+        let bVal = b[sortConfig.key]
+
+        // Handle currency values
+        if (typeof aVal === 'string' && aVal.includes('₹')) {
+          aVal = parseFloat(aVal.replace(/[₹,]/g, ''))
+          bVal = parseFloat(String(bVal).replace(/[₹,]/g, ''))
         }
-        
-        const aStr = String(aValue || '')
-        const bStr = String(bValue || '')
-        
-        if (aStr < bStr) return sortConfig.direction === 'asc' ? -1 : 1
-        if (aStr > bStr) return sortConfig.direction === 'asc' ? 1 : -1
+
+        // Handle dates
+        if (sortConfig.key.includes('date') || sortConfig.key.includes('Date')) {
+          aVal = new Date(aVal).getTime()
+          bVal = new Date(bVal).getTime()
+        }
+
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1
         return 0
       })
     }
@@ -192,142 +188,159 @@ export default function AdvancedDataGrid({
     return result
   }, [data, searchTerm, columnFilters, sortConfig])
 
-  // Update filtered data
+  // Pagination
+  const totalPages = Math.ceil(processedData.length / pageSize)
+  const paginatedData = processedData.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  )
+
+  // Update filtered data when data changes
   useEffect(() => {
     setFilteredData(processedData)
-    setCurrentPage(1)
   }, [processedData])
 
-  // Pagination
-  const totalPages = Math.ceil(filteredData.length / pageSize)
-  const startIndex = (currentPage - 1) * pageSize
-  const paginatedData = filteredData.slice(startIndex, startIndex + pageSize)
+  // Reset page when data changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, columnFilters, data])
 
-  // Event handlers
-  const handleSort = useCallback((key: string) => {
-    const column = columns.find(col => col.key === key)
-    if (!column?.sortable) return
-
-    setSortConfig(prev => {
-      if (prev?.key === key) {
-        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
-      }
-      return { key, direction: 'asc' }
-    })
-  }, [columns])
-
-  const handleQuickAdd = useCallback(async (newRowData: Partial<GridRow>) => {
-    if (!onAdd) return
-
-    setIsProcessing(true)
-    try {
-      await onAdd(newRowData)
-      setEditing({ mode: 'none' })
-      if (onRefresh) await onRefresh()
-    } catch (error) {
-      console.error('Failed to add row:', error)
-    } finally {
-      setIsProcessing(false)
-    }
-  }, [onAdd, onRefresh])
-
-  const handleInlineEdit = useCallback(async (rowId: string, field: string, value: any) => {
-    if (!onEdit) return
-
-    setIsProcessing(true)
-    try {
-      await onEdit(rowId, { [field]: value })
-      setEditing({ mode: 'none' })
-    } catch (error) {
-      console.error('Failed to edit:', error)
-    } finally {
-      setIsProcessing(false)
-    }
-  }, [onEdit])
-
-  const handleModalEdit = useCallback(async (rowData: Partial<GridRow>) => {
+  // Row editing handlers
+  const handleRowEdit = useCallback(async (rowData: Partial<GridRow>) => {
     if (!onEdit || !editing.rowId) return
 
     setIsProcessing(true)
     try {
       await onEdit(editing.rowId, rowData)
       setEditing({ mode: 'none' })
-      if (onRefresh) await onRefresh()
     } catch (error) {
       console.error('Failed to edit:', error)
     } finally {
       setIsProcessing(false)
     }
-  }, [onEdit, onRefresh, editing.rowId])
+  }, [onEdit, editing.rowId])
 
-  const handleDelete = useCallback(async (rowId: string) => {
-    if (!onDelete || !confirm('Are you sure you want to delete this transaction?')) return
-
-    setIsProcessing(true)
-    try {
-      await onDelete(rowId)
-      if (onRefresh) await onRefresh()
-    } catch (error) {
-      console.error('Failed to delete:', error)
-    } finally {
-      setIsProcessing(false)
-    }
-  }, [onDelete, onRefresh])
-
-  const handleBulkDelete = useCallback(async () => {
-    if (!onBulkDelete || selectedRows.size === 0 || 
-        !confirm(`Delete ${selectedRows.size} selected transactions?`)) return
+  const handleQuickAdd = useCallback(async (rowData: Partial<GridRow>) => {
+    if (!onAdd) return
 
     setIsProcessing(true)
     try {
-      await onBulkDelete(Array.from(selectedRows))
-      setSelectedRows(new Set())
-      if (onRefresh) await onRefresh()
+      await onAdd(rowData)
+      setEditing({ mode: 'none' })
     } catch (error) {
-      console.error('Failed to bulk delete:', error)
+      console.error('Failed to add:', error)
     } finally {
       setIsProcessing(false)
     }
-  }, [onBulkDelete, selectedRows, onRefresh])
+  }, [onAdd])
 
-  const toggleRowSelection = useCallback((rowId: string) => {
-    setSelectedRows(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(rowId)) {
-        newSet.delete(rowId)
-      } else {
-        newSet.add(rowId)
-      }
-      return newSet
-    })
-  }, [])
+  // Render editable cell
+  const renderEditableCell = useCallback((row: GridRow, column: GridColumn) => {
+    // Get the current value from editing data if available, otherwise from row
+    const currentValue = editing.mode === 'row' && editing.rowId === row.id && editing.data
+      ? editing.data[column.key]
+      : row[column.key]
 
-  const toggleSelectAll = useCallback(() => {
-    if (selectedRows.size === paginatedData.length) {
-      setSelectedRows(new Set())
-    } else {
-      setSelectedRows(new Set(paginatedData.map(row => row.id)))
+    if (column.type === 'date') {
+      const dateValue = currentValue ? new Date(currentValue).toISOString().split('T')[0] : ''
+      return (
+        <input
+          type="date"
+          value={dateValue}
+          onChange={(e) => {
+            const currentData = editing.data || row
+            const updatedData = { ...currentData, [column.key]: e.target.value }
+            setEditing({ mode: 'row', rowId: row.id, data: updatedData })
+          }}
+          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        />
+      )
     }
-  }, [selectedRows.size, paginatedData])
 
-  // Render functions
-  const renderCell = useCallback((row: GridRow, column: GridColumn) => {
-    const value = row[column.key]
-    const isCurrentlyEditing = editing.mode === 'inline' && 
-                               editing.rowId === row.id && 
-                               editing.field === column.key
+    if (column.type === 'currency') {
+      return (
+        <div className="relative">
+          <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">₹</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={Number(currentValue) || 0}
+            onChange={(e) => {
+              const currentData = editing.data || row
+              const updatedData = { ...currentData, [column.key]: Number(e.target.value) }
+              setEditing({ mode: 'row', rowId: row.id, data: updatedData })
+            }}
+            className="w-full pl-6 pr-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+      )
+    }
 
-    // Inline editing mode
-    if (isCurrentlyEditing && column.editable) {
-      return <InlineCellEditor 
-        column={column}
-        value={value}
-        row={row}
-        onSave={(newValue: any) => handleInlineEdit(row.id, column.key, newValue)}
-        onCancel={() => setEditing({ mode: 'none' })}
-        isProcessing={isProcessing}
+    if (column.type === 'select' || column.type === 'badge') {
+      return (
+        <select
+          value={currentValue || ''}
+          onChange={(e) => {
+            const currentData = editing.data || row
+            const updatedData = { ...currentData, [column.key]: e.target.value }
+            setEditing({ mode: 'row', rowId: row.id, data: updatedData })
+          }}
+          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        >
+          <option value="">Select {column.title}...</option>
+          {column.options?.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )
+    }
+
+    if (column.type === 'creatable-select') {
+      return (
+        <CreatableCombobox
+          options={column.options || []}
+          value={currentValue}
+          onChange={(val) => {
+            const currentData = editing.data || row
+            const updatedData = { ...currentData, [column.key]: val }
+            setEditing({ mode: 'row', rowId: row.id, data: updatedData })
+          }}
+          onCreate={(val) => {
+            if (column.onCreate) {
+              column.onCreate(val)
+            }
+            const currentData = editing.data || row
+            const updatedData = { ...currentData, [column.key]: val }
+            setEditing({ mode: 'row', rowId: row.id, data: updatedData })
+          }}
+          placeholder={`Select or create ${column.title.toLowerCase()}...`}
+          className="text-sm"
+        />
+      )
+    }
+
+    // Default to text input
+    return (
+      <input
+        type="text"
+        value={currentValue || ''}
+        onChange={(e) => {
+          const currentData = editing.data || row
+          const updatedData = { ...currentData, [column.key]: e.target.value }
+          setEditing({ mode: 'row', rowId: row.id, data: updatedData })
+        }}
+        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        placeholder={column.placeholder}
       />
-    }
+    )
+  }, [editing])
+
+  // Render display cell
+  const renderDisplayCell = useCallback((row: GridRow, column: GridColumn) => {
+    const value = row[column.key]
 
     // Custom render function
     if (column.render) {
@@ -337,407 +350,320 @@ export default function AdvancedDataGrid({
     // Default renderers based on type
     switch (column.type) {
       case 'currency':
+        const numValue = Number(value) || 0
+        const isNegative = numValue < 0
         return (
-          <CurrencyCell 
-            value={value} 
-            editable={column.editable && enableEdit}
-            onClick={() => column.editable && setEditing({ 
-              mode: 'inline', 
-              rowId: row.id, 
-              field: column.key 
-            })}
-          />
+          <div className={`font-medium ${isNegative ? 'text-red-600' : 'text-green-600'}`}>
+            ₹{Math.abs(numValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </div>
         )
-      
+
       case 'date':
-        return (
-          <DateCell 
-            value={value}
-            editable={column.editable && enableEdit}
-            onClick={() => column.editable && setEditing({ 
-              mode: 'inline', 
-              rowId: row.id, 
-              field: column.key 
-            })}
-          />
-        )
-      
+        let displayValue = '-'
+        if (value) {
+          try {
+            const date = new Date(value)
+            if (!isNaN(date.getTime())) {
+              displayValue = date.toLocaleDateString('en-IN', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              })
+            }
+          } catch (e) {
+            displayValue = value
+          }
+        }
+        return <div className="text-gray-900">{displayValue}</div>
+
       case 'badge':
-        return <BadgeCell value={value} options={column.options} />
-      
-      case 'select':
+        const option = column.options?.find((opt) => opt.value === value)
         return (
-          <SelectCell 
-            value={value}
-            options={column.options || []}
-            editable={column.editable && enableEdit}
-            onClick={() => column.editable && setEditing({ 
-              mode: 'inline', 
-              rowId: row.id, 
-              field: column.key 
-            })}
-          />
+          <span
+            className={`px-2 py-1 text-xs font-medium rounded-full ${option?.color || 'bg-gray-100 text-gray-800'}`}
+          >
+            {option?.label || value || '-'}
+          </span>
         )
-      
+
       default:
-        return (
-          <TextCell 
-            value={value}
-            editable={column.editable && enableEdit}
-            onClick={() => column.editable && setEditing({ 
-              mode: 'inline', 
-              rowId: row.id, 
-              field: column.key 
-            })}
-          />
-        )
+        return <div className="text-gray-900">{value || '-'}</div>
     }
-  }, [editing, enableEdit, isProcessing, handleInlineEdit])
+  }, [])
 
   // Loading state
   if (loading) {
-    return <LoadingState />
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        <div className="flex items-center justify-center">
+          <RefreshCw className="h-6 w-6 animate-spin text-indigo-600 mr-3" />
+          <span className="text-gray-600">Loading data...</span>
+        </div>
+      </div>
+    )
   }
 
   // Error state
   if (error) {
-    return <ErrorState error={error} onRetry={onRefresh} />
-  }
-
-  return (
-    <div className={`bg-white rounded-lg shadow-sm border transition-all duration-300 ${
-      isFullscreen 
-        ? 'fixed inset-0 z-50 rounded-none shadow-2xl' 
-        : 'relative'
-    }`}>
-      {/* Header */}
-      <div className="flex flex-col space-y-4 p-6 border-b bg-gray-50/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg">
-              <FileText className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
-              {subtitle && <p className="text-sm text-gray-600">{subtitle}</p>}
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            {enableFullscreen && (
-              <button
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-              >
-                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              </button>
-            )}
-            
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        <div className="flex items-center justify-center text-center">
+          <div>
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Data</h3>
+            <p className="text-gray-600 mb-4">{error}</p>
             {onRefresh && (
               <button
                 onClick={onRefresh}
-                disabled={isProcessing}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                title="Refresh Data"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
               >
-                <RefreshCw className={`h-4 w-4 ${isProcessing ? 'animate-spin' : ''}`} />
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
               </button>
             )}
           </div>
         </div>
+      </div>
+    )
+  }
 
-        {/* Controls */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-          <div className="flex flex-1 items-center space-x-4">
+  return (
+    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${isFullscreen ? 'fixed inset-0 z-50 m-4' : ''}`}>
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+            {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}
+          </div>
+          <div className="flex items-center space-x-3">
             {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="h-4 w-4 absolute left-3 top-3 text-gray-400" />
+            <div className="relative">
+              <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder={searchPlaceholder}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
               />
             </div>
 
-            {/* Filters Toggle */}
-            {enableFilters && (
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center px-3 py-2 border rounded-lg transition-colors ${
-                  showFilters 
-                    ? 'border-indigo-300 bg-indigo-50 text-indigo-700' 
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Filters
-                {Object.values(columnFilters).some(v => v) && (
-                  <span className="ml-2 px-1.5 py-0.5 text-xs bg-indigo-600 text-white rounded-full">
-                    {Object.values(columnFilters).filter(v => v).length}
-                  </span>
-                )}
-              </button>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-3">
-            {/* Bulk Actions */}
-            {enableBulkActions && selectedRows.size > 0 && (
-              <div className="flex items-center space-x-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg">
-                <span className="text-sm text-indigo-700">
-                  {selectedRows.size} selected
-                </span>
-                {enableDelete && (
-                  <button
-                    onClick={handleBulkDelete}
-                    disabled={isProcessing}
-                    className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
-                    title="Delete Selected"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Quick Add */}
-            {enableAdd && editing.mode !== 'quickAdd' && (
+            {/* Add Transaction Button */}
+            {enableAdd && onAdd && (
               <button
                 onClick={() => setEditing({ mode: 'quickAdd', data: { ...defaultValues } })}
-                className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 transition-colors"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Transaction
               </button>
             )}
-          </div>
-        </div>
 
-        {/* Column Filters */}
-        {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 pt-4 border-t">
-            {columns.filter(col => col.filterable).map(column => (
-              <div key={column.key}>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  {column.title}
-                </label>
-                <input
-                  type="text"
-                  placeholder={`Filter ${column.title.toLowerCase()}...`}
-                  value={columnFilters[column.key] || ''}
-                  onChange={(e) => setColumnFilters(prev => ({
-                    ...prev,
-                    [column.key]: e.target.value
-                  }))}
-                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-            ))}
-            {Object.values(columnFilters).some(v => v) && (
-              <div className="flex items-end">
-                <button
-                  onClick={() => setColumnFilters({})}
-                  className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 underline"
-                >
-                  Clear Filters
-                </button>
-              </div>
+            {/* Refresh */}
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
             )}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Quick Add Row */}
-      {editing.mode === 'quickAdd' && (
-        <QuickAddRow 
-          columns={columns}
-          defaultValues={editing.data || {}}
-          onSave={handleQuickAdd}
-          onCancel={() => setEditing({ mode: 'none' })}
-          isProcessing={isProcessing}
-        />
-      )}
-
       {/* Table */}
-      <div className={`overflow-auto ${isFullscreen ? 'h-[calc(100vh-300px)]' : 'max-h-[70vh]'}`}>
-        <table className="w-full">
-          <thead className="bg-gray-50 sticky top-0 z-10">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
             <tr>
-              {/* Bulk Select */}
-              {enableBulkActions && (
-                <th className="px-4 py-3 text-left w-12">
-                  <input
-                    type="checkbox"
-                    checked={selectedRows.size === paginatedData.length && paginatedData.length > 0}
-                    onChange={toggleSelectAll}
-                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                  />
-                </th>
-              )}
-              
-              {/* Column Headers */}
-              {columns.map(column => (
+              {columns.map((column) => (
                 <th
                   key={column.key}
-                  style={{ 
-                    width: column.width,
-                    minWidth: column.minWidth || '120px'
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  style={{ width: column.width, minWidth: column.minWidth }}
+                  onClick={() => {
+                    if (column.sortable) {
+                      setSortConfig(current => {
+                        if (current?.key === column.key) {
+                          return current.direction === 'asc'
+                            ? { key: column.key, direction: 'desc' }
+                            : null
+                        }
+                        return { key: column.key, direction: 'asc' }
+                      })
+                    }
                   }}
-                  className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                    column.sortable ? 'cursor-pointer hover:bg-gray-100 select-none' : ''
-                  }`}
-                  onClick={() => column.sortable && handleSort(column.key)}
                 >
-                  <div className="flex items-center space-x-1">
-                    <span>{column.title}</span>
-                    {column.required && <span className="text-red-500">*</span>}
+                  <div className="flex items-center">
+                    {column.title}
                     {column.sortable && (
-                      <span className="text-gray-400">
+                      <div className="ml-1">
                         {sortConfig?.key === column.key ? (
-                          sortConfig.direction === 'asc' 
-                            ? <ArrowUp className="h-3 w-3" /> 
-                            : <ArrowDown className="h-3 w-3" />
+                          sortConfig.direction === 'asc' ? (
+                            <ArrowUp className="h-3 w-3" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3" />
+                          )
                         ) : (
-                          <ArrowUpDown className="h-3 w-3" />
+                          <ArrowUpDown className="h-3 w-3 text-gray-300" />
                         )}
-                      </span>
+                      </div>
                     )}
                   </div>
                 </th>
               ))}
-              
-              {/* Actions */}
               {(enableEdit || enableDelete || customActions.length > 0) && (
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                <th
+                  className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-50 z-10 shadow-sm"
+                  style={{ width: '120px', minWidth: '120px' }}
+                >
                   Actions
                 </th>
               )}
             </tr>
           </thead>
-          
           <tbody className="bg-white divide-y divide-gray-200">
             {paginatedData.map((row, index) => {
-              // Debug: Log rows without proper IDs
-              if (!row.id) {
-                console.warn('Row without ID found:', row, 'at index:', index)
+              // Use strict comparison and ensure both IDs are strings
+              const rowId = String(row.id || `temp-${index}`)
+              const editingRowId = String(editing.rowId || '')
+              const isEditing = editing.mode === 'row' && editingRowId === rowId
+              const editingData = isEditing ? { ...row, ...(editing.data || {}) } : row
+
+              // Debug logging to see what's happening
+              if (index === 0) {
+                console.log('Debug editing state:', {
+                  editingMode: editing.mode,
+                  editingRowId: editingRowId,
+                  currentRowId: rowId,
+                  isEditing: isEditing,
+                  allRowIds: paginatedData.map(r => String(r.id)).slice(0, 5)
+                })
               }
-              
+
+              // Ensure unique key
+              const uniqueKey = rowId
+
               return (
-                <tr 
-                  key={row.id || `row-${index}`} 
-                  className={`hover:bg-gray-50 transition-colors ${
-                    selectedRows.has(row.id) ? 'bg-indigo-50' : ''
-                  }`}
+                <tr
+                  key={uniqueKey}
+                  className={`hover:bg-gray-50 ${isEditing ? 'bg-blue-50 ring-2 ring-blue-200' : ''}`}
                 >
-                {/* Bulk Select */}
-                {enableBulkActions && (
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedRows.has(row.id)}
-                      onChange={() => toggleRowSelection(row.id)}
-                      className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                    />
-                  </td>
-                )}
-                
-                {/* Data Cells */}
-                {columns.map(column => (
-                  <td 
-                    key={column.key} 
-                    className="px-4 py-3 text-sm whitespace-nowrap"
-                  >
-                    {renderCell(row, column)}
-                  </td>
-                ))}
-                
-                {/* Actions */}
-                {(enableEdit || enableDelete || customActions.length > 0) && (
-                  <td className="px-4 py-3 text-right text-sm">
-                    <div className="flex items-center justify-end space-x-2">
-                      {customActions.map((action, i) => (
-                        <button
-                          key={`${row.id}-${action.label}-${i}`}
-                          onClick={() => action.action(row)}
-                          className={`p-1 rounded hover:bg-gray-100 ${
-                            action.variant === 'danger' ? 'text-red-600 hover:text-red-800' :
-                            action.variant === 'primary' ? 'text-indigo-600 hover:text-indigo-800' :
-                            'text-gray-600 hover:text-gray-800'
-                          }`}
-                          title={action.label}
-                        >
-                          {action.icon}
-                        </button>
-                      ))}
-                      
-                      {enableEdit && (
-                        <button
-                          onClick={() => setEditing({ 
-                            mode: 'modal', 
-                            rowId: row.id, 
-                            data: { ...row } 
-                          })}
-                          className="p-1 text-indigo-600 hover:text-indigo-800 rounded hover:bg-gray-100"
-                          title="Edit"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                      )}
-                      
-                      {enableDelete && (
-                        <button
-                          onClick={() => handleDelete(row.id)}
-                          disabled={isProcessing}
-                          className="p-1 text-red-600 hover:text-red-800 rounded hover:bg-gray-100 disabled:opacity-50"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                )}
-              </tr>
+                  {columns.map((column, colIndex) => (
+                    <td key={`${uniqueKey}-${column.key}-${colIndex}`} className="px-6 py-4 whitespace-nowrap text-sm">
+                      {isEditing && column.editable ?
+                        renderEditableCell(editingData, column) :
+                        renderDisplayCell(editingData, column)
+                      }
+                    </td>
+                  ))}
+
+                  {/* Actions Column */}
+                  {(enableEdit || enableDelete || customActions.length > 0) && (
+                    <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-medium sticky right-0 z-10 shadow-sm ${isEditing ? 'bg-blue-50' : 'bg-white'}`}>
+                      <div className="flex items-center justify-end space-x-2">
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={() => handleRowEdit(editingData)}
+                              disabled={isProcessing}
+                              className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors"
+                            >
+                              <Save className="h-3 w-3 mr-1" />
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditing({ mode: 'none' })}
+                              className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {enableEdit && onEdit && (
+                              <button
+                                onClick={() => {
+                                  const targetRowId = String(row.id || `temp-${index}`)
+                                  console.log('Starting edit for row:', targetRowId, 'current editing:', editing.rowId)
+                                  setEditing({ mode: 'row', rowId: targetRowId, data: { ...row } })
+                                }}
+                                className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50 transition-colors"
+                                title="Edit"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                            )}
+                            {customActions.map((action, actionIndex) => {
+                              const IconComponent = action.icon
+                              return (
+                                <button
+                                  key={`${uniqueKey}-action-${actionIndex}`}
+                                  onClick={() => action.onClick(row)}
+                                  className={action.className || "text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-50 transition-colors"}
+                                  title={action.label}
+                                >
+                                  <IconComponent className="h-4 w-4" />
+                                </button>
+                              )
+                            })}
+                            {enableDelete && onDelete && (
+                              <button
+                                onClick={() => onDelete(row.id)}
+                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
               )
             })}
           </tbody>
         </table>
       </div>
 
-      {/* Empty State */}
-      {filteredData.length === 0 && !loading && (
-        <EmptyState 
-          hasSearch={!!searchTerm || Object.values(columnFilters).some(v => v)}
-          onAddFirst={enableAdd ? () => setEditing({ mode: 'quickAdd', data: { ...defaultValues } }) : undefined}
-        />
-      )}
-
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="px-6 py-4 border-t bg-gray-50/50">
+        <div className="px-6 py-4 border-t border-gray-200">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              Showing {startIndex + 1} to {Math.min(startIndex + pageSize, filteredData.length)} of {filteredData.length} results
+            <div className="text-sm text-gray-700">
+              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, processedData.length)} of {processedData.length} entries
             </div>
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="px-4 py-2 text-sm font-medium">
-                Page {currentPage} of {totalPages}
-              </span>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={`page-${page}`}
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-3 py-1 text-sm rounded ${page === currentPage
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  {page}
+                </button>
+              ))}
+
               <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -746,152 +672,15 @@ export default function AdvancedDataGrid({
         </div>
       )}
 
-      {/* Edit Modal */}
-      {editing.mode === 'modal' && (
-        <EditModal
+      {/* Quick Add Row Modal */}
+      {editing.mode === 'quickAdd' && (
+        <QuickAddRow
           columns={columns}
-          data={editing.data || {}}
-          onSave={handleModalEdit}
+          defaultValues={defaultValues}
+          onSave={handleQuickAdd}
           onCancel={() => setEditing({ mode: 'none' })}
           isProcessing={isProcessing}
         />
-      )}
-    </div>
-  )
-}
-
-// Cell Components
-const CurrencyCell = ({ value, editable, onClick }: any) => (
-  <div 
-    className={`font-medium text-gray-900 ${editable ? 'cursor-pointer hover:bg-gray-100 px-2 py-1 rounded' : ''}`}
-    onClick={onClick}
-  >
-    ₹{Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-  </div>
-)
-
-const DateCell = ({ value, editable, onClick }: any) => (
-  <div 
-    className={`text-gray-900 ${editable ? 'cursor-pointer hover:bg-gray-100 px-2 py-1 rounded' : ''}`}
-    onClick={onClick}
-  >
-    {value ? new Date(value).toLocaleDateString('en-IN') : '-'}
-  </div>
-)
-
-const BadgeCell = ({ value, options }: any) => {
-  const option = options?.find((opt: any) => opt.value === value)
-  return (
-    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-      option?.color || 'bg-gray-100 text-gray-800'
-    }`}>
-      {option?.label || value || '-'}
-    </span>
-  )
-}
-
-const SelectCell = ({ value, options, editable, onClick }: any) => {
-  const option = options.find((opt: any) => opt.value === value)
-  return (
-    <div 
-      className={`text-gray-900 ${editable ? 'cursor-pointer hover:bg-gray-100 px-2 py-1 rounded' : ''}`}
-      onClick={onClick}
-    >
-      {option?.label || value || '-'}
-    </div>
-  )
-}
-
-const TextCell = ({ value, editable, onClick }: any) => (
-  <div 
-    className={`text-gray-900 ${editable ? 'cursor-pointer hover:bg-gray-100 px-2 py-1 rounded' : ''}`}
-    onClick={onClick}
-  >
-    {value || '-'}
-  </div>
-)
-
-// Helper Components (continued in next part due to length...)
-const InlineCellEditor = ({ column, value, row, onSave, onCancel, isProcessing }: InlineCellEditorProps) => {
-  const [editValue, setEditValue] = useState(value || '')
-  const [error, setError] = useState<string | null>(null)
-
-  const handleSave = () => {
-    // Validate
-    if (column.validate) {
-      const validationError = column.validate(editValue, row)
-      if (validationError) {
-        setError(validationError)
-        return
-      }
-    }
-
-    onSave(editValue)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleSave()
-    } else if (e.key === 'Escape') {
-      onCancel()
-    }
-  }
-
-  return (
-    <div className="flex items-center space-x-2 min-w-0">
-      {column.type === 'select' ? (
-        <select
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="flex-1 min-w-[120px] px-2 py-1 text-sm border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          autoFocus
-        >
-          <option value="">Select...</option>
-          {column.options?.map((option: any) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type={
-            column.type === 'number' || column.type === 'currency' ? 'number' : 
-            column.type === 'date' ? 'date' : 'text'
-          }
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="flex-1 min-w-[120px] px-2 py-1 text-sm border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          placeholder={column.placeholder}
-          autoFocus
-        />
-      )}
-      
-      <div className="flex items-center space-x-1">
-        <button
-          onClick={handleSave}
-          disabled={isProcessing}
-          className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"
-          title="Save"
-        >
-          <Check className="h-3 w-3" />
-        </button>
-        <button
-          onClick={onCancel}
-          className="p-1 text-gray-600 hover:text-gray-800"
-          title="Cancel"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      </div>
-      
-      {error && (
-        <div className="absolute z-10 mt-1 px-2 py-1 text-xs text-red-600 bg-red-50 border border-red-200 rounded shadow-sm">
-          {error}
-        </div>
       )}
     </div>
   )
@@ -902,138 +691,18 @@ const QuickAddRow = ({ columns, defaultValues, onSave, onCancel, isProcessing }:
   const [formData, setFormData] = useState<Partial<GridRow>>(defaultValues || {})
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const handleSubmit = () => {
-    const newErrors: Record<string, string> = {}
-    
-    // Validate required fields
-    columns.forEach((column: GridColumn) => {
-      if (column.required && !formData[column.key]) {
-        newErrors[column.key] = `${column.title} is required`
-      }
-      
-      // Custom validation
-      if (column.validate && formData[column.key]) {
-        const error = column.validate(formData[column.key], formData)
-        if (error) {
-          newErrors[column.key] = error
-        }
-      }
-    })
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      return
-    }
-
-    onSave(formData)
-  }
-
-  return (
-    <div className="border-b bg-green-50/50">
-      <div className="px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Add New Transaction</h3>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleSubmit}
-              disabled={isProcessing}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 disabled:opacity-50 transition-colors"
-            >
-              {isProcessing ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </>
-              )}
-            </button>
-            <button
-              onClick={onCancel}
-              className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-gray-500 transition-colors"
-            >
-              <X className="h-4 w-4 mr-2" />
-              Cancel
-            </button>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {columns.filter((col: GridColumn) => col.editable).map((column: GridColumn) => (
-            <div key={column.key}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {column.title}
-                {column.required && <span className="text-red-500 ml-1">*</span>}
-              </label>
-              
-              {column.type === 'select' ? (
-                <select
-                  value={formData[column.key] || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, [column.key]: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
-                    errors[column.key] ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                >
-                  <option value="">Select {column.title}...</option>
-                  {column.options?.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : column.type === 'date' ? (
-                <input
-                  type="date"
-                  value={formData[column.key] || ''}
-                  onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: e.target.value }))}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
-                    errors[column.key] ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                />
-              ) : (
-                <input
-                  type={column.type === 'number' || column.type === 'currency' ? 'number' : 'text'}
-                  value={formData[column.key] || ''}
-                  onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: e.target.value }))}
-                  placeholder={column.placeholder || `Enter ${column.title.toLowerCase()}...`}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
-                    errors[column.key] ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                />
-              )}
-              
-              {errors[column.key] && (
-                <p className="mt-1 text-sm text-red-600">{errors[column.key]}</p>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Edit Modal Component
-const EditModal = ({ columns, data, onSave, onCancel, isProcessing }: EditModalProps) => {
-  const [formData, setFormData] = useState<Partial<GridRow>>(data || {})
-  const [errors, setErrors] = useState<Record<string, string>>({})
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
-    const newErrors: Record<string, string> = {}
-    
+
     // Validate required fields
-    columns.forEach((column: GridColumn) => {
-      if (column.required && !formData[column.key]) {
+    const newErrors: Record<string, string> = {}
+    columns.forEach(column => {
+      if (column.required && (!formData[column.key] || formData[column.key] === '')) {
         newErrors[column.key] = `${column.title} is required`
       }
-      
+
       // Custom validation
-      if (column.validate && formData[column.key]) {
+      if (column.validate && formData[column.key] !== undefined) {
         const error = column.validate(formData[column.key], formData)
         if (error) {
           newErrors[column.key] = error
@@ -1050,172 +719,106 @@ const EditModal = ({ columns, data, onSave, onCancel, isProcessing }: EditModalP
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        {/* Backdrop */}
-        <div 
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-          onClick={onCancel}
-        ></div>
-        
-        {/* Modal */}
-        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl">
-          <form onSubmit={handleSubmit}>
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b">
-              <h3 className="text-lg font-medium text-gray-900">Edit Transaction</h3>
-              <button
-                type="button"
-                onClick={onCancel}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            {/* Content */}
-            <div className="p-6 max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {columns.filter((col: GridColumn) => col.editable).map((column: GridColumn) => (
-                  <div key={column.key} className={column.key === 'description' ? 'md:col-span-2' : ''}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {column.title}
-                      {column.required && <span className="text-red-500 ml-1">*</span>}
-                    </label>
-                    
-                    {column.type === 'select' ? (
-                      <select
-                        value={formData[column.key] || ''}
-                        onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: e.target.value }))}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
-                          errors[column.key] ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                      >
-                        <option value="">Select {column.title}...</option>
-                        {column.options?.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : column.key === 'description' ? (
-                      <textarea
-                        value={formData[column.key] || ''}
-                        onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: e.target.value }))}
-                        placeholder={column.placeholder || `Enter ${column.title.toLowerCase()}...`}
-                        rows={3}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
-                          errors[column.key] ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                      />
-                    ) : (
-                      <input
-                        type={
-                          column.type === 'number' || column.type === 'currency' ? 'number' : 
-                          column.type === 'date' ? 'date' : 'text'
-                        }
-                        value={formData[column.key] || ''}
-                        onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: e.target.value }))}
-                        placeholder={column.placeholder || `Enter ${column.title.toLowerCase()}...`}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${
-                          errors[column.key] ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                      />
-                    )}
-                    
-                    {errors[column.key] && (
-                      <p className="mt-1 text-sm text-red-600">{errors[column.key]}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Footer */}
-            <div className="flex items-center justify-end space-x-3 p-6 border-t bg-gray-50">
-              <button
-                type="button"
-                onClick={onCancel}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-gray-500 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isProcessing}
-                className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
-              >
-                {isProcessing ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Changes
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">Add New Transaction</h3>
         </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {columns.filter(col => col.editable).map((column, colIndex) => (
+              <div key={`form-${column.key}-${colIndex}`}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {column.title}
+                  {column.required && <span className="text-red-500 ml-1">*</span>}
+                </label>
+
+                {column.type === 'date' ? (
+                  <input
+                    type="date"
+                    value={formData[column.key] || ''}
+                    onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${errors[column.key] ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                  />
+                ) : column.type === 'currency' ? (
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-sm text-gray-500">₹</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData[column.key] || ''}
+                      onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: Number(e.target.value) }))}
+                      className={`w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${errors[column.key] ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                      placeholder="0.00"
+                    />
+                  </div>
+                ) : column.type === 'creatable-select' ? (
+                  <CreatableCombobox
+                    options={column.options || []}
+                    value={formData[column.key]}
+                    onChange={(val) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: val }))}
+                    onCreate={(val) => {
+                      if (column.onCreate) {
+                        column.onCreate(val)
+                      }
+                      setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: val }))
+                    }}
+                    placeholder={column.placeholder || `Select or create ${column.title.toLowerCase()}...`}
+                  />
+                ) : column.type === 'select' || column.type === 'badge' ? (
+                  <select
+                    value={formData[column.key] || ''}
+                    onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${errors[column.key] ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                  >
+                    <option value="">Select {column.title}...</option>
+                    {column.options?.map((option: any, optIndex: number) => (
+                      <option key={`${column.key}-option-${option.value}-${optIndex}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={formData[column.key] || ''}
+                    onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${errors[column.key] ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                    placeholder={column.placeholder || `Enter ${column.title.toLowerCase()}...`}
+                  />
+                )}
+
+                {errors[column.key] && (
+                  <p className="mt-1 text-sm text-red-600">{errors[column.key]}</p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isProcessing}
+              className="px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
+            >
+              {isProcessing ? 'Adding...' : 'Add Transaction'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )
 }
-
-// Loading State
-const LoadingState = () => (
-  <div className="flex items-center justify-center h-64 bg-white rounded-lg shadow">
-    <div className="text-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-      <p className="text-gray-600">Loading transactions...</p>
-    </div>
-  </div>
-)
-
-// Error State
-const ErrorState = ({ error, onRetry }: { error: string, onRetry?: () => void }) => (
-  <div className="flex items-center justify-center h-64 bg-white rounded-lg shadow">
-    <div className="text-center">
-      <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-      <p className="text-red-600 mb-4">{error}</p>
-      {onRetry && (
-        <button
-          onClick={onRetry}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          Try Again
-        </button>
-      )}
-    </div>
-  </div>
-)
-
-// Empty State
-const EmptyState = ({ hasSearch, onAddFirst }: { hasSearch: boolean, onAddFirst?: () => void }) => (
-  <div className="flex items-center justify-center h-64">
-    <div className="text-center">
-      <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-      <h3 className="text-lg font-medium text-gray-900 mb-2">
-        {hasSearch ? 'No results found' : 'No transactions yet'}
-      </h3>
-      <p className="text-gray-600 mb-4">
-        {hasSearch 
-          ? 'Try adjusting your search or filters'
-          : 'Get started by adding your first transaction'
-        }
-      </p>
-      {!hasSearch && onAddFirst && (
-        <button
-          onClick={onAddFirst}
-          className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors mx-auto"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add First Transaction
-        </button>
-      )}
-    </div>
-  </div>
-)
