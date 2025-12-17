@@ -12,7 +12,10 @@ if (!MONGODB_URI) {
  * during API Route usage.
  */
 declare global {
-  var mongoose: any // This must be a `var` and not a `let / const`
+  var mongoose: {
+    conn: typeof import('mongoose') | null;
+    promise: Promise<typeof import('mongoose')> | null;
+  } | undefined; // This must be a `var` and not a `let / const`
 }
 
 let cached = global.mongoose

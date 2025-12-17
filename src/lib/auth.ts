@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
-import { adminUserManager } from './adminUserManager'
+import dbConnect from './mongodb'
+import { User } from './models'
 
 const secretKey = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 const key = new TextEncoder().encode(secretKey)
@@ -9,13 +10,12 @@ export interface SessionPayload {
   userId: string
   username: string
   email: string
-  role: 'admin' | 'super_admin'
+  role: 'admin' | 'super_admin' | 'manager' | 'accountant' | 'viewer'
   expiresAt: number
-  [key: string]: any
 }
 
 export async function encrypt(payload: SessionPayload) {
-  return await new SignJWT(payload as any)
+  return await new SignJWT(payload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('24h')
@@ -35,14 +35,15 @@ export async function decrypt(input: string): Promise<SessionPayload | null> {
 }
 
 export async function createSession(userId: string) {
-  const user = await adminUserManager.findUserById(userId)
+  await dbConnect()
+  const user = await User.findById(userId).select('-password')
   if (!user) {
     throw new Error('User not found')
   }
 
   const expiresAt = Date.now() + 24 * 60 * 60 * 1000 // 24 hours
   const session: SessionPayload = {
-    userId: user.id,
+    userId: user._id.toString(),
     username: user.username,
     email: user.email,
     role: user.role,
@@ -62,7 +63,9 @@ export async function createSession(userId: string) {
   })
 
   // Update last login
-  await adminUserManager.updateLastLogin(userId)
+  await User.findByIdAndUpdate(userId, { 
+    lastLogin: new Date() 
+  })
 
   return sessionToken
 }

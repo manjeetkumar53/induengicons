@@ -26,13 +26,13 @@ export interface Column {
   editable?: boolean
   sortable?: boolean
   options?: { value: string, label: string }[] // for select type
-  render?: (value: any, row: any) => React.ReactNode
-  validate?: (value: any) => string | null
+  render?: (value: unknown, row: DataGridRow) => React.ReactNode
+  validate?: (value: unknown) => string | null
 }
 
 export interface DataGridProps {
   columns: Column[]
-  data: any[]
+  data: DataGridRow[]
   loading?: boolean
   error?: string
   title?: string
@@ -44,14 +44,14 @@ export interface DataGridProps {
   enableDelete?: boolean
   enableBulkActions?: boolean
   onAdd?: () => void
-  onEdit?: (row: any, field: string, value: any) => Promise<void>
-  onDelete?: (row: any) => Promise<void>
-  onBulkDelete?: (rows: any[]) => Promise<void>
+  onEdit?: (row: DataGridRow, field: string, value: unknown) => Promise<void>
+  onDelete?: (row: DataGridRow) => Promise<void>
+  onBulkDelete?: (rows: DataGridRow[]) => Promise<void>
   onRefresh?: () => void
   customActions?: {
     label: string
     icon: React.ReactNode
-    action: (row: any) => void
+    action: (row: DataGridRow) => void
     variant?: 'primary' | 'secondary' | 'danger'
   }[]
 }
@@ -136,12 +136,12 @@ export default function DataGrid({
     })
   }
 
-  const handleEdit = async (rowId: string, field: string, value: any) => {
+  const handleEdit = async (rowId: string, field: string, value: unknown) => {
     if (!onEdit) return
 
     setIsSaving(true)
     try {
-      const row = data.find(r => r.id === rowId)
+      const row = data.find(r => (r.id || r._id) === rowId)
       if (row) {
         await onEdit(row, field, value)
       }
@@ -153,7 +153,7 @@ export default function DataGrid({
     }
   }
 
-  const handleDelete = async (row: any) => {
+  const handleDelete = async (row: DataGridRow) => {
     if (!onDelete) return
 
     setIsDeleting(true)
@@ -195,13 +195,14 @@ export default function DataGrid({
     if (selectedRows.size === paginatedData.length) {
       setSelectedRows(new Set())
     } else {
-      setSelectedRows(new Set(paginatedData.map(row => row.id)))
+      setSelectedRows(new Set(paginatedData.map(row => String(row.id || row._id))))
     }
   }
 
-  const renderCell = (row: any, column: Column) => {
+  const renderCell = (row: DataGridRow, column: Column) => {
     const value = row[column.key]
-    const isEditing = editingCell?.rowId === row.id && editingCell?.field === column.key
+    const rowId = String(row.id || row._id)
+    const isEditing = editingCell?.rowId === rowId && editingCell?.field === column.key
 
     if (isEditing && column.editable) {
       return (

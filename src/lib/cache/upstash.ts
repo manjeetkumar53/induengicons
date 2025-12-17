@@ -32,7 +32,7 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
  */
 export async function cacheSet(
     key: string,
-    value: any,
+    value: unknown,
     ttl: number
 ): Promise<void> {
     try {
@@ -69,7 +69,7 @@ export async function cacheDel(key: string): Promise<void> {
  */
 export function generateCacheKey(
     prefix: string,
-    params: Record<string, any>
+    params: Record<string, unknown>
 ): string {
     const sortedParams = Object.keys(params)
         .sort()

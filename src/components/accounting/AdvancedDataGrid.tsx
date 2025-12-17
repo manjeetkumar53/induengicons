@@ -41,15 +41,15 @@ export interface GridColumn {
   filterable?: boolean
   required?: boolean
   options?: { value: string | number, label: string, color?: string }[]
-  render?: (value: any, row: any, isEditing?: boolean) => React.ReactNode
-  validate?: (value: any, row?: any) => string | null
+  render?: (value: unknown, row: Record<string, unknown>, isEditing?: boolean) => React.ReactNode
+  validate?: (value: unknown, row?: Record<string, unknown>) => string | null
   placeholder?: string
   onCreate?: (value: string) => void
 }
 
 export interface GridRow {
   id: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface QuickAddRowProps {
@@ -777,7 +777,7 @@ const QuickAddRow = ({ columns, defaultValues, onSave, onCancel, isProcessing }:
                       }`}
                   >
                     <option value="">Select {column.title}...</option>
-                    {column.options?.map((option: any, optIndex: number) => (
+                    {column.options?.map((option: { value: string | number; label: string }, optIndex: number) => (
                       <option key={`${column.key}-option-${option.value}-${optIndex}`} value={option.value}>
                         {option.label}
                       </option>

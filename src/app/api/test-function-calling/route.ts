@@ -7,7 +7,7 @@ export async function GET() {
     try {
         // Test simple function calling with a basic object-style tool definition
         const result = await generateText({
-            model: google('gemini-2.0-flash'),
+            model: google('gemini-flash-latest'),
             prompt: 'Add 5 and 3',
             tools: {
                 addNumbers: {
@@ -31,18 +31,18 @@ export async function GET() {
             steps: result.steps || []
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Function Calling Test Error:', error)
-        
+
         return NextResponse.json({
             success: false,
-            error: error.message || 'Function calling test failed',
-            details: {
+            error: error instanceof Error ? error.message : 'Function calling test failed',
+            details: error instanceof Error ? {
                 name: error.name,
-                cause: error.cause,
-                statusCode: error.statusCode,
-                responseBody: error.responseBody
-            }
+                cause: (error as Error & { cause?: unknown }).cause,
+                statusCode: (error as Error & { statusCode?: unknown }).statusCode,
+                responseBody: (error as Error & { responseBody?: unknown }).responseBody
+            } : { message: 'Unknown error type' }
         })
     }
 }

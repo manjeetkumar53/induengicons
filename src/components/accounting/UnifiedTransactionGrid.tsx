@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import AdvancedDataGrid, { GridColumn, GridRow } from './AdvancedDataGrid'
 import QuickCategoryModal from '../modals/QuickCategoryModal'
 import QuickProjectModal from '../modals/QuickProjectModal'
+import { ProjectRow, CategoryRow, TransactionRow } from '@/types/components'
 import {
   TrendingUp,
   TrendingDown,
@@ -40,15 +41,15 @@ interface UnifiedTransactionGridProps {
 
 export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGridProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [projects, setProjects] = useState<any[]>([])
-  const [categories, setCategories] = useState<any[]>([])
+  const [projects, setProjects] = useState<ProjectRow[]>([])
+  const [categories, setCategories] = useState<CategoryRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Quick creation modals
   const [showCategoryModal, setShowCategoryModal] = useState(false)
   const [showProjectModal, setShowProjectModal] = useState(false)
-  const [pendingTransactionData, setPendingTransactionData] = useState<any>(null)
+  const [pendingTransactionData, setPendingTransactionData] = useState<Record<string, unknown> | null>(null)
 
   // Stats
   const stats = {
@@ -86,12 +87,12 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
       const data = await response.json()
       // Normalize source/vendor to always have a value in 'source' for the grid
       // Also ensure each transaction has a proper string ID
-      const normalizedTransactions = (data.transactions || []).map((t: any, index: number) => ({
+      const normalizedTransactions = (data.transactions || []).map((t: Record<string, unknown> & { _id?: string; id?: string }, index: number) => ({
         ...t,
-        id: t._id || t.id || `transaction-${index}`, // Ensure we have a unique string ID
-        source: t.source || t.vendor || '',
-        category: t.categoryId?.name || t.categoryName || '',
-        project: t.projectId?.name || t.projectName || ''
+        id: String(t._id || t.id || `transaction-${index}`), // Ensure we have a unique string ID
+        source: String(t.source || (t as Record<string, unknown>).vendor || ''),
+        category: String((t as any).categoryId?.name || (t as any).categoryName || ''),
+        project: String((t as any).projectId?.name || (t as any).projectName || '')
       }))
       console.log('Loaded transactions with IDs:', normalizedTransactions.slice(0, 3).map((t: Transaction) => ({ id: t.id, description: t.description })))
       setTransactions(normalizedTransactions)
@@ -174,7 +175,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
         ...(newTransaction.source && { source: newTransaction.source.trim() }),
         ...(newTransaction.receiptNumber && { receiptNumber: newTransaction.receiptNumber.trim() }),
         ...(newTransaction.notes && { notes: newTransaction.notes.trim() }),
-        ...(newTransaction.tags && { tags: newTransaction.tags }),
+        ...(newTransaction.tags ? { tags: newTransaction.tags } : {}),
         ...(userId && { userId })
       }
 
@@ -231,7 +232,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
   }, [userId, projects, categories, loadTransactions])
 
   // Quick creation handlers
-  const handleCategoryCreated = useCallback((newCategory: any) => {
+  const handleCategoryCreated = useCallback((newCategory: CategoryRow) => {
     setCategories(prev => [...prev, newCategory])
     setShowCategoryModal(false)
 
@@ -243,7 +244,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
     }
   }, [pendingTransactionData])
 
-  const handleProjectCreated = useCallback((newProject: any) => {
+  const handleProjectCreated = useCallback((newProject: ProjectRow) => {
     console.log('Project created, updating state:', newProject)
     setProjects(prev => [...prev, newProject])
     setShowProjectModal(false)
@@ -300,7 +301,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
       // However, the API might expect specific fields.
       // Let's assume the API handles 'source' and 'vendor' separately.
 
-      const apiData: any = { ...updatedData }
+      const apiData: Record<string, unknown> = { ...updatedData }
 
       // If source is present in updatedData, ensure it's passed as source
       // The backend uses 'source' for both income (payer) and expense (vendor)
@@ -521,7 +522,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
       width: '120px',
       editable: false,
       sortable: true,
-      render: (value) => value ? new Date(value).toLocaleDateString('en-IN') : '-'
+      render: (value) => value && typeof value === 'string' ? new Date(value).toLocaleDateString('en-IN') : '-'
     }
   ], [categories, projects])
 
@@ -545,7 +546,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
     paymentMethod: 'cash',
     amount: '',
     description: '',
-    category: categories.length > 0 ? categories[0].name : ''
+    category: ''
   }), [categories])
 
   return (
@@ -631,7 +632,7 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
           setShowCategoryModal(false)
           setPendingTransactionData(null)
         }}
-        onSave={handleCategoryCreated}
+        onSave={(newCategory: any) => handleCategoryCreated(newCategory)}
         defaultType={pendingTransactionData?.type === 'income' ? 'revenue' : 'expense'}
       />
 
@@ -641,8 +642,8 @@ export default function UnifiedTransactionGrid({ userId }: UnifiedTransactionGri
           setShowProjectModal(false)
           setPendingTransactionData(null)
         }}
-        onSave={handleProjectCreated}
-        initialName={pendingTransactionData?.project || ''}
+        onSave={(newProject: any) => handleProjectCreated(newProject)}
+        initialName={typeof pendingTransactionData?.project === 'string' ? pendingTransactionData.project : ''}
       />
     </div>
   )

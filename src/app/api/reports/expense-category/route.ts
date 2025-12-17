@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
         endDate: searchParams.get('endDate') || new Date().toISOString(),
         projectId: searchParams.get('projectId') || undefined,
         categoryId: searchParams.get('categoryId') || undefined,
-        groupBy: (searchParams.get('groupBy') as any) || 'month'
+        groupBy: (searchParams.get('groupBy') as 'day' | 'week' | 'month' | 'quarter' | 'year') || 'month'
     }
 
     return POST(new NextRequest(request.url, {

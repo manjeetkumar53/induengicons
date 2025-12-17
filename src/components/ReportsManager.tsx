@@ -528,7 +528,7 @@ export default function ReportsManager() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setActiveTab(tab.id as 'dashboard' | 'profit-loss' | 'cash-flow' | 'transactions' | 'income-sources' | 'expense-categories')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
                     activeTab === tab.id
                       ? 'border-purple-500 text-purple-600'
@@ -614,7 +614,7 @@ export default function ReportsManager() {
                 <div className="flex items-center space-x-2">
                   <select
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
+                    onChange={(e) => setSortBy(e.target.value as 'date' | 'amount' | 'project')}
                     className="block px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
                   >
                     <option value="date">Sort by Date</option>

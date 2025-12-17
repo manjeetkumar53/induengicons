@@ -196,7 +196,7 @@ export async function PUT(
     }
 
     // Prepare update object
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       type,
       amount: parseFloat(amount),
       description: description.trim(),
@@ -232,10 +232,10 @@ export async function PUT(
       transaction: updatedTransaction
     })
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating transaction:', error)
 
-    if (error.name === 'ValidationError') {
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'ValidationError') {
       return NextResponse.json(
         { success: false, error: 'Invalid transaction data' },
         { status: 400 }

@@ -6,7 +6,7 @@ import { Transaction, Project, TransactionCategory, ExpenseCategory } from '@/li
 export async function GET(request: NextRequest) {
   try {
     await dbConnect()
-    
+
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') as 'income' | 'expense' | null
     const projectId = searchParams.get('projectId')
@@ -17,9 +17,9 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = (page - 1) * limit
-    
+
     // Build query
-    const query: any = {}
+    const query: Record<string, unknown> = {}
     if (type) query.type = type
     if (projectId) query.projectId = projectId
     if (categoryId) {
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         query.expenseCategoryId = categoryId
       }
     }
-    
+
     // Text search
     if (search) {
       query.$or = [
@@ -38,14 +38,15 @@ export async function GET(request: NextRequest) {
         { receiptNumber: { $regex: search, $options: 'i' } }
       ]
     }
-    
+
     // Date range filter
     if (startDate || endDate) {
-      query.date = {}
-      if (startDate) query.date.$gte = new Date(startDate)
-      if (endDate) query.date.$lte = new Date(endDate + 'T23:59:59.999Z')
+      const dateFilter: Record<string, Date> = {}
+      if (startDate) dateFilter.$gte = new Date(startDate)
+      if (endDate) dateFilter.$lte = new Date(endDate + 'T23:59:59.999Z')
+      query.date = dateFilter
     }
-    
+
     const [transactions, total] = await Promise.all([
       Transaction.find(query)
         .populate('projectId', 'name code description')
@@ -57,9 +58,9 @@ export async function GET(request: NextRequest) {
         .lean(),
       Transaction.countDocuments(query)
     ])
-    
+
     const totalPages = Math.ceil(total / limit)
-    
+
     return NextResponse.json({
       success: true,
       transactions,
@@ -84,15 +85,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     await dbConnect()
-    
+
     const body = await request.json()
-    const { 
-      type, 
-      amount, 
-      description, 
-      date, 
-      projectId, 
-      expenseCategoryId, 
+    const {
+      type,
+      amount,
+      description,
+      date,
+      projectId,
+      expenseCategoryId,
       transactionCategoryId,
       source,
       paymentMethod,
@@ -196,10 +197,22 @@ export async function POST(request: NextRequest) {
       tags: tags || []
     })
 
-    // Generate transaction number manually
-    const count = await Transaction.countDocuments()
+    // Generate transaction number based on last existing one to avoid duplicates
     const year = new Date().getFullYear()
-    const transactionNumber = `TXN${year}${String(count + 1).padStart(6, '0')}`
+    const lastTransaction = await Transaction.findOne({
+      transactionNumber: { $regex: `^TXN${year}` }
+    }).sort({ transactionNumber: -1 })
+
+    let nextSequence = 1
+    if (lastTransaction && lastTransaction.transactionNumber) {
+      const lastSequenceStr = lastTransaction.transactionNumber.replace(`TXN${year}`, '')
+      const lastSequence = parseInt(lastSequenceStr, 10)
+      if (!isNaN(lastSequence)) {
+        nextSequence = lastSequence + 1
+      }
+    }
+
+    const transactionNumber = `TXN${year}${String(nextSequence).padStart(6, '0')}`
 
     const transaction = await Transaction.create({
       transactionNumber,
@@ -227,7 +240,7 @@ export async function POST(request: NextRequest) {
     // Update project budget if it's an expense
     if (type === 'expense' && project) {
       await Project.findByIdAndUpdate(projectId, {
-        $inc: { 
+        $inc: {
           'budget.spentAmount': numericAmount,
           'budget.remainingBudget': -numericAmount
         }
@@ -244,27 +257,27 @@ export async function POST(request: NextRequest) {
       success: true,
       transaction: populatedTransaction
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating transaction:', error)
-    
+
     // More specific error messages
-    if (error.code === 11000) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
       return NextResponse.json(
         { error: 'Duplicate transaction number. Please try again.' },
         { status: 400 }
       )
     }
-    
-    if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map((err: any) => err.message).join(', ')
+
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'ValidationError' && 'errors' in error) {
+      const validationErrors = Object.values(error.errors as Record<string, { message: string }>).map((err) => err.message).join(', ')
       return NextResponse.json(
         { error: `Validation failed: ${validationErrors}` },
         { status: 400 }
       )
     }
-    
+
     return NextResponse.json(
-      { error: 'Failed to create transaction', details: error.message },
+      { error: 'Failed to create transaction', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

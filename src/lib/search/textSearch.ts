@@ -18,7 +18,7 @@ export async function searchTransactionsText(
     } = {},
     limit: number = 20
 ) {
-    const matchStage: any = {
+    const matchStage: Record<string, unknown> = {
         $text: { $search: query }
     };
 
@@ -68,7 +68,7 @@ export async function searchTransactionsFuzzy(
     } = {},
     limit: number = 20
 ) {
-    const matchStage: any = {
+    const matchStage: Record<string, unknown> = {
         $or: [
             { description: { $regex: query, $options: 'i' } },
             { projectName: { $regex: query, $options: 'i' } },

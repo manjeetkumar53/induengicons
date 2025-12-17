@@ -1,11 +1,12 @@
 'use client'
 
 import FilteredTransactionGrid from './FilteredTransactionGrid'
+import { TransactionRow } from '@/types/components'
 
 interface ExpenseGridProps {
   onAddTransaction?: () => void
-  onEditTransaction?: (transaction: any) => void
-  onViewReceipt?: (transaction: any) => void
+  onEditTransaction?: (transaction: TransactionRow) => void
+  onViewReceipt?: (transaction: TransactionRow) => void
 }
 
 export default function ExpenseGrid({

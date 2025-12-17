@@ -60,13 +60,14 @@ export async function GET(request: NextRequest) {
     const paymentMethod = searchParams.get('paymentMethod')
     
     // Build query for transactions
-    const query: any = {}
+    const query: Record<string, unknown> = {}
     
     // Date filter
     if (startDate || endDate) {
-      query.date = {}
-      if (startDate) query.date.$gte = new Date(startDate)
-      if (endDate) query.date.$lte = new Date(endDate)
+      const dateFilter: Record<string, Date> = {}
+      if (startDate) dateFilter.$gte = new Date(startDate)
+      if (endDate) dateFilter.$lte = new Date(endDate)
+      query.date = dateFilter
     }
     
     // Transaction type filter
@@ -111,23 +112,29 @@ export async function GET(request: NextRequest) {
     ])
     
     // Format transactions for frontend
-    const formattedTransactions = transactions.map((transaction: any) => ({
-      id: transaction._id.toString(),
-      type: transaction.type,
-      amount: transaction.amount,
-      description: transaction.description,
-      date: transaction.date,
-      projectId: transaction.projectId?._id.toString(),
-      projectName: transaction.projectId?.name,
-      expenseCategoryId: transaction.expenseCategoryId?._id.toString(),
-      expenseCategoryName: transaction.expenseCategoryId?.name,
-      transactionCategoryId: transaction.categoryId?._id.toString(),
-      transactionCategoryName: transaction.categoryId?.name,
-      source: transaction.source,
-      paymentMethod: transaction.paymentMethod,
-      receiptNumber: transaction.receiptNumber,
-      createdBy: transaction.createdBy
-    }))
+    const formattedTransactions = transactions.map((transaction: Record<string, unknown>) => {
+      const projectData = transaction.projectId as Record<string, unknown> | null
+      const categoryData = transaction.categoryId as Record<string, unknown> | null
+      const expenseCategoryData = transaction.expenseCategoryId as Record<string, unknown> | null
+
+      return {
+        id: (transaction._id as { toString(): string }).toString(),
+        type: transaction.type as string,
+        amount: transaction.amount as number,
+        description: transaction.description as string,
+        date: transaction.date as Date,
+        projectId: projectData?._id ? (projectData._id as { toString(): string }).toString() : undefined,
+        projectName: projectData?.name as string | undefined,
+        expenseCategoryId: expenseCategoryData?._id ? (expenseCategoryData._id as { toString(): string }).toString() : undefined,
+        expenseCategoryName: expenseCategoryData?.name as string | undefined,
+        transactionCategoryId: categoryData?._id ? (categoryData._id as { toString(): string }).toString() : undefined,
+        transactionCategoryName: categoryData?.name as string | undefined,
+        source: transaction.source as string,
+        paymentMethod: transaction.paymentMethod as string,
+        receiptNumber: transaction.receiptNumber as string,
+        createdBy: transaction.createdBy as string
+      }
+    })
     
     // Calculate stats
     const totalIncome = formattedTransactions
@@ -139,9 +146,9 @@ export async function GET(request: NextRequest) {
       .reduce((sum, t) => sum + t.amount, 0)
     
     const totalAllocations = allocations
-      .reduce((sum: number, a: any) => sum + a.amount, 0)
+      .reduce((sum: number, a: Record<string, unknown>) => sum + (a.amount as number), 0)
     
-    const activeProjects = projects.filter((p: any) => p.status === 'active').length
+    const activeProjects = projects.filter((p: Record<string, unknown>) => p.status === 'active').length
     
     const stats = {
       totalIncome,

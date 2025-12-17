@@ -73,13 +73,14 @@ export function AIChatInterface() {
                 throw new Error(data.error || 'No valid response received');
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Chat Error:', error);
-            setError(error.message || 'Unknown error occurred');
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            setError(errorMessage);
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
-                content: `Error: ${error.message || 'Something went wrong. Please try again.'}`
+                content: `Error: ${errorMessage}`
             }]);
         } finally {
             setIsLoading(false);

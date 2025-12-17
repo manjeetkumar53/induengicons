@@ -6,7 +6,7 @@ import type { ReportFilters } from './types'
  * Build MongoDB query from report filters
  */
 export function buildTransactionQuery(filters: ReportFilters) {
-    const query: any = {}
+    const query: Record<string, unknown> = {}
 
     // Date range filter (required)
     if (filters.startDate || filters.endDate) {
@@ -63,7 +63,25 @@ export async function queryTransactions(filters: ReportFilters) {
         .lean()
 
     // Normalize data
-    return transactions.map((t: any) => ({
+    return transactions.map((t: Record<string, unknown> & {
+        _id: unknown;
+        type: string;
+        amount: number;
+        description: string;
+        date: Date;
+        projectId?: { _id: unknown; name: string };
+        projectName?: string;
+        categoryId?: { _id: unknown; name: string };
+        categoryName?: string;
+        expenseCategoryId?: { _id: unknown; name: string };
+        expenseCategoryName?: string;
+        source?: string;
+        paymentMethod: string;
+        receiptNumber?: string;
+        status: string;
+        createdBy: string;
+        createdAt: Date;
+    }) => ({
         id: t._id.toString(),
         type: t.type,
         amount: t.amount,
@@ -87,11 +105,16 @@ export async function queryTransactions(filters: ReportFilters) {
 /**
  * Group transactions by period
  */
+interface TransactionForGrouping {
+    date: Date | string;
+    [key: string]: unknown;
+}
+
 export function groupByPeriod(
-    transactions: any[],
+    transactions: TransactionForGrouping[],
     groupBy: 'day' | 'week' | 'month' | 'quarter' | 'year' = 'month'
 ) {
-    const grouped = new Map<string, any[]>()
+    const grouped = new Map<string, TransactionForGrouping[]>()
 
     transactions.forEach(t => {
         const date = new Date(t.date)
@@ -133,10 +156,10 @@ export function groupByPeriod(
  * Group transactions by field
  */
 export function groupByField(
-    transactions: any[],
+    transactions: Record<string, unknown>[],
     field: string
 ) {
-    const grouped = new Map<string, any[]>()
+    const grouped = new Map<string, Record<string, unknown>[]>()
 
     transactions.forEach(t => {
         const key = t[field] || 'Unknown'

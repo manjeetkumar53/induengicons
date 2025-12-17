@@ -29,8 +29,8 @@ interface AllocationGridProps {
 
 export default function AllocationGrid({ userId }: AllocationGridProps) {
   const [allocations, setAllocations] = useState<Allocation[]>([])
-  const [projects, setProjects] = useState<any[]>([])
-  const [incomeTransactions, setIncomeTransactions] = useState<any[]>([])
+  const [projects, setProjects] = useState<Record<string, unknown>[]>([])  
+  const [incomeTransactions, setIncomeTransactions] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -69,7 +69,7 @@ export default function AllocationGrid({ userId }: AllocationGridProps) {
       const data = await response.json()
 
       // Normalize data
-      const normalizedAlloc = (data.allocations || []).map((a: any, index: number) => ({
+      const normalizedAlloc = (data.allocations || []).map((a: Record<string, unknown>, index: number) => ({
         ...a,
         id: a.id || a._id || `allocation-${index}`
       }))
@@ -172,7 +172,7 @@ export default function AllocationGrid({ userId }: AllocationGridProps) {
   const handleEdit = useCallback(async (id: string, updatedData: Partial<Allocation>) => {
     try {
       // Map names to IDs if needed
-      const apiData: any = { ...updatedData }
+      const apiData: Record<string, unknown> = { ...updatedData }
 
       if (updatedData.targetProjectName) {
         const project = projects.find(p => p.name === updatedData.targetProjectName)

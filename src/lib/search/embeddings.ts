@@ -4,7 +4,7 @@ import { pipeline, env } from '@xenova/transformers';
 env.allowLocalModels = false;
 
 // Singleton pattern for the embedding model
-let embedder: any = null;
+let embedder: unknown = null;
 
 /**
  * Initialize the embedding model

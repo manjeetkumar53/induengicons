@@ -35,7 +35,7 @@ export async function hybridSearch(
         const queryEmbedding = await generateEmbedding(query);
 
         // 2. Build match stage for filters
-        const matchStage: any = {};
+        const matchStage: Record<string, unknown> = {};
 
         if (filters.startDate || filters.endDate) {
             matchStage.date = {};
@@ -76,7 +76,7 @@ export async function hybridSearch(
         ]);
 
         // 4. Perform text search (fallback if vector search fails or for keyword matching)
-        let textResults: any[] = [];
+        let textResults: Record<string, unknown>[] = [];
         try {
             textResults = await searchTransactionsText(query, filters, limit);
         } catch (error) {
@@ -87,8 +87,8 @@ export async function hybridSearch(
         const resultsMap = new Map();
 
         // Add vector results
-        vectorResults.forEach((result: any) => {
-            const id = result._id.toString();
+        vectorResults.forEach((result: Record<string, unknown> & { _id: unknown; vectorScore?: number }) => {
+            const id = String(result._id);
             resultsMap.set(id, {
                 ...result,
                 vectorScore: result.vectorScore || 0,
@@ -98,8 +98,8 @@ export async function hybridSearch(
         });
 
         // Add/merge text results
-        textResults.forEach((result: any) => {
-            const id = result._id.toString();
+        textResults.forEach((result: Record<string, unknown> & { _id?: unknown }) => {
+            const id = String(result._id);
             const existing = resultsMap.get(id);
 
             if (existing) {
@@ -189,7 +189,7 @@ export async function smartSearch(query: string, limit: number = 20) {
         }
     };
 
-    let filters: any = {};
+    let filters: Record<string, unknown> = {};
     let cleanQuery = query.toLowerCase();
 
     // Extract date range

@@ -28,7 +28,8 @@ console.log('REDIS_URL exists:', !!process.env.REDIS_URL)
 
 import dbConnect from '@/lib/mongodb'
 import { User } from '@/lib/models'
-import { createUser } from '@/lib/auth-mongo'
+import { createInitialAdmin } from '@/lib/auth-mongo'
+import bcrypt from 'bcryptjs'
 
 async function seedAuthUsers() {
   try {
@@ -45,19 +46,12 @@ async function seedAuthUsers() {
     console.log('👤 Creating initial admin user...')
 
     // Create admin user
-    const adminUser = await createUser({
+    const adminUser = await createInitialAdmin({
       username: 'admin',
       email: 'admin@induengicons.com',
       password: process.env.ADMIN_PASSWORD || 'Admin@123456',
       firstName: 'System',
-      lastName: 'Administrator',
-      role: 'admin',
-      permissions: {
-        projects: 'admin',
-        transactions: 'admin',
-        reports: 'admin',
-        settings: 'admin'
-      }
+      lastName: 'Administrator'
     })
 
     console.log('✅ Admin user created successfully:')
@@ -116,7 +110,22 @@ async function seedAuthUsers() {
 
     for (const userData of testUsers) {
       try {
-        const user = await createUser(userData)
+        // Hash password
+        const hashedPassword = await bcrypt.hash(userData.password, 12)
+
+        // Create user directly in MongoDB
+        const user = await User.create({
+          username: userData.username,
+          email: userData.email,
+          password: hashedPassword,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          role: userData.role,
+          permissions: userData.permissions,
+          status: 'active',
+          createdAt: new Date()
+        })
+
         console.log(`✅ Created ${userData.role}:`, user.username, `(${user.email})`)
       } catch (error) {
         console.log(`⚠️  ${userData.role} might already exist:`, userData.username)
@@ -131,7 +140,7 @@ async function seedAuthUsers() {
     console.log('   Viewer: viewer / Viewer@123')
     console.log('\n🔐 All passwords use secure bcrypt hashing')
     console.log('🔑 JWT tokens are used for session management')
-    console.log('💾 Session data is cached in Redis for performance')
+    console.log('💾 Session data is stored in MongoDB (Redis removed for Vercel compatibility)')
 
   } catch (error) {
     console.error('❌ Auth seed failed:', error)

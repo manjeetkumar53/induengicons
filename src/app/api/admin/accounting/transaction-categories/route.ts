@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     console.error('Error creating transaction category:', error)
     
     // Handle duplicate key errors
-    if (error instanceof Error && 'code' in error && (error as any).code === 11000) {
+    if (error instanceof Error && 'code' in error && (error as Error & { code: number }).code === 11000) {
       return NextResponse.json(
         { error: 'A category with this accounting code already exists' },
         { status: 409 }

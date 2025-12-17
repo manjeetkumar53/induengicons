@@ -1,43 +1,32 @@
-import { createClient } from 'redis'
+import dbConnect from './mongodb'
+import { User } from './models'
 import bcrypt from 'bcryptjs'
 
 export interface AdminUser {
   id: string
   username: string
   email: string
-  role: 'admin' | 'super_admin'
+  role: 'admin' | 'super_admin' | 'manager' | 'accountant' | 'viewer'
   hashedPassword: string
   createdAt: string
   lastLogin?: string
-  isActive: boolean
+  status: 'active' | 'inactive' | 'suspended'
 }
 
 export interface CreateAdminUserData {
   username: string
   email: string
   password: string
-  role?: 'admin' | 'super_admin'
+  role?: 'admin' | 'super_admin' | 'manager' | 'accountant' | 'viewer'
 }
 
 export class AdminUserManager {
-  private redis: any
-
   constructor() {
-    this.redis = null
-  }
-
-  private async getRedisClient() {
-    if (!this.redis) {
-      this.redis = createClient({
-        url: process.env.REDIS_URL
-      })
-      await this.redis.connect()
-    }
-    return this.redis
+    // No Redis - use MongoDB only for Vercel compatibility
   }
 
   async createAdminUser(userData: CreateAdminUserData): Promise<AdminUser> {
-    const redis = await this.getRedisClient()
+    await dbConnect()
     
     // Check if user already exists
     const existingUser = await this.findUserByUsername(userData.username)
@@ -53,64 +42,85 @@ export class AdminUserManager {
     // Hash password
     const hashedPassword = await bcrypt.hash(userData.password, 12)
 
-    // Create user object
-    const adminUser: AdminUser = {
-      id: Date.now().toString(),
+    // Create user in MongoDB
+    const newUser = await User.create({
       username: userData.username,
       email: userData.email,
+      password: hashedPassword,
       role: userData.role || 'admin',
-      hashedPassword,
-      createdAt: new Date().toISOString(),
-      isActive: true
+      permissions: {
+        projects: 'admin',
+        transactions: 'admin',
+        reports: 'admin',
+        settings: userData.role === 'super_admin' ? 'admin' : 'read'
+      },
+      status: 'active',
+      createdAt: new Date()
+    })
+
+    return {
+      id: newUser._id.toString(),
+      username: newUser.username,
+      email: newUser.email,
+      role: newUser.role,
+      hashedPassword: newUser.password,
+      createdAt: newUser.createdAt.toISOString(),
+      status: newUser.status
     }
-
-    // Store in Redis
-    const userKey = `admin:user:${adminUser.id}`
-    await redis.set(userKey, JSON.stringify(adminUser))
-
-    // Add to username index
-    await redis.set(`admin:username:${userData.username}`, adminUser.id)
-    
-    // Add to email index
-    await redis.set(`admin:email:${userData.email}`, adminUser.id)
-
-    // Add to user list
-    await redis.lPush('admin:users', userKey)
-
-    return adminUser
   }
 
   async findUserByUsername(username: string): Promise<AdminUser | null> {
-    const redis = await this.getRedisClient()
+    await dbConnect()
     
-    const userId = await redis.get(`admin:username:${username}`)
-    if (!userId) return null
+    const user = await User.findOne({ username })
+    if (!user) return null
 
-    const userKey = `admin:user:${userId}`
-    const userData = await redis.get(userKey)
-    
-    return userData ? JSON.parse(userData) : null
+    return {
+      id: user._id.toString(),
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      hashedPassword: user.password,
+      createdAt: user.createdAt?.toISOString() || new Date().toISOString(),
+      lastLogin: user.lastLogin?.toISOString(),
+      status: user.status
+    }
   }
 
   async findUserByEmail(email: string): Promise<AdminUser | null> {
-    const redis = await this.getRedisClient()
+    await dbConnect()
     
-    const userId = await redis.get(`admin:email:${email}`)
-    if (!userId) return null
+    const user = await User.findOne({ email })
+    if (!user) return null
 
-    const userKey = `admin:user:${userId}`
-    const userData = await redis.get(userKey)
-    
-    return userData ? JSON.parse(userData) : null
+    return {
+      id: user._id.toString(),
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      hashedPassword: user.password,
+      createdAt: user.createdAt?.toISOString() || new Date().toISOString(),
+      lastLogin: user.lastLogin?.toISOString(),
+      status: user.status
+    }
   }
 
   async findUserById(id: string): Promise<AdminUser | null> {
-    const redis = await this.getRedisClient()
+    await dbConnect()
     
-    const userKey = `admin:user:${id}`
-    const userData = await redis.get(userKey)
-    
-    return userData ? JSON.parse(userData) : null
+    const user = await User.findById(id)
+    if (!user) return null
+
+    return {
+      id: user._id.toString(),
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      hashedPassword: user.password,
+      createdAt: user.createdAt?.toISOString() || new Date().toISOString(),
+      lastLogin: user.lastLogin?.toISOString(),
+      status: user.status
+    }
   }
 
   async validatePassword(password: string, hashedPassword: string): Promise<boolean> {
@@ -118,37 +128,32 @@ export class AdminUserManager {
   }
 
   async updateLastLogin(userId: string): Promise<void> {
-    const redis = await this.getRedisClient()
+    await dbConnect()
     
-    const user = await this.findUserById(userId)
-    if (user) {
-      user.lastLogin = new Date().toISOString()
-      const userKey = `admin:user:${userId}`
-      await redis.set(userKey, JSON.stringify(user))
-    }
+    await User.findByIdAndUpdate(userId, {
+      lastLogin: new Date()
+    })
   }
 
   async getAllUsers(): Promise<AdminUser[]> {
-    const redis = await this.getRedisClient()
+    await dbConnect()
     
-    const userKeys = await redis.lRange('admin:users', 0, -1)
-    const users: AdminUser[] = []
-
-    for (const key of userKeys) {
-      const userData = await redis.get(key)
-      if (userData) {
-        users.push(JSON.parse(userData))
-      }
-    }
-
-    return users.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    const users = await User.find({}).sort({ createdAt: -1 })
+    
+    return users.map(user => ({
+      id: user._id.toString(),
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      hashedPassword: user.password,
+      createdAt: user.createdAt?.toISOString() || new Date().toISOString(),
+      lastLogin: user.lastLogin?.toISOString(),
+      status: user.status
+    }))
   }
 
   async disconnect() {
-    if (this.redis) {
-      await this.redis.disconnect()
-      this.redis = null
-    }
+    // No Redis to disconnect - MongoDB connection is handled automatically
   }
 }
 

@@ -39,8 +39,17 @@ export const searchTransactionsTool = tool({
 
             console.log('Found transactions:', transactions.length);
 
-            const results = transactions.map((t: any) => ({
-                id: t._id.toString(),
+            const results = transactions.map((t: Record<string, unknown> & {
+                _id: unknown;
+                date: Date;
+                description: string;
+                amount: number;
+                type: string;
+                projectName?: string;
+                categoryName?: string;
+                source?: string;
+            }) => ({
+                id: String(t._id),
                 date: t.date.toISOString().split('T')[0],
                 description: t.description,
                 amount: t.amount,
@@ -61,11 +70,11 @@ export const searchTransactionsTool = tool({
                     query
                 }
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[SearchTool] Error:', error);
             return {
                 success: false,
-                error: error.message || 'Search failed',
+                error: error instanceof Error ? error.message : 'Search failed',
                 results: []
             };
         }
@@ -91,7 +100,7 @@ export const advancedSearchTool = tool({
         await dbConnect();
 
         try {
-            const searchQuery: any = {};
+            const searchQuery: Record<string, unknown> = {};
 
             // Text search
             if (query.trim()) {
@@ -125,8 +134,17 @@ export const advancedSearchTool = tool({
 
             console.log('Found transactions:', transactions.length);
 
-            const results = transactions.map((t: any) => ({
-                id: t._id.toString(),
+            const results = transactions.map((t: Record<string, unknown> & {
+                _id: unknown;
+                date: Date;
+                description: string;
+                amount: number;
+                type: string;
+                projectName?: string;
+                categoryName?: string;
+                source?: string;
+            }) => ({
+                id: String(t._id),
                 date: t.date.toISOString().split('T')[0],
                 description: t.description,
                 amount: t.amount,
@@ -146,11 +164,11 @@ export const advancedSearchTool = tool({
                     filters: { startDate, endDate, type }
                 }
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[AdvancedSearchTool] Error:', error);
             return {
                 success: false,
-                error: error.message,
+                error: error instanceof Error ? error.message : 'Advanced search failed',
                 results: []
             };
         }

@@ -16,7 +16,7 @@ const Tabs = React.forwardRef<
         >
             {React.Children.map(children, child => {
                 if (React.isValidElement(child)) {
-                    return React.cloneElement(child as any, { value, onValueChange: setValue })
+                    return React.cloneElement(child as React.ReactElement<{ value?: string; onValueChange?: (value: string) => void }>, { value, onValueChange: setValue })
                 }
                 return child
             })}

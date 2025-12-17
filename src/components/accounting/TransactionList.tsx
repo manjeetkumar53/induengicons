@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { 
-  Search, 
-  Filter, 
+import {
+  Search,
+  Filter,
   Edit,
   Trash2,
   Copy,
@@ -33,7 +33,7 @@ interface Transaction {
     name: string
   }
   category?: {
-    _id: string  
+    _id: string
     name: string
   }
 }
@@ -58,6 +58,7 @@ interface TransactionListProps {
   onProjectChange: (projectId: string) => void
   selectedCategory: string
   onCategoryChange: (categoryId: string) => void
+  onBulkDelete?: (transactionIds: string[]) => void
 }
 
 export default function TransactionList({
@@ -79,7 +80,8 @@ export default function TransactionList({
   selectedProject,
   onProjectChange,
   selectedCategory,
-  onCategoryChange
+  onCategoryChange,
+  onBulkDelete
 }: TransactionListProps) {
   const [showFilters, setShowFilters] = useState(false)
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([])
@@ -143,13 +145,12 @@ export default function TransactionList({
               </span>
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`p-2 rounded-lg transition-colors ${
-                  showFilters || hasActiveFilters
-                    ? type === 'income' 
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
+                className={`p-2 rounded-lg transition-colors ${showFilters || hasActiveFilters
+                  ? type === 'income'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  }`}
               >
                 <Filter className="h-5 w-5" />
               </button>
@@ -221,7 +222,7 @@ export default function TransactionList({
                   </select>
                 </div>
               </div>
-              
+
               {hasActiveFilters && (
                 <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                   <span className="text-sm text-gray-600">Active filters applied</span>
@@ -248,7 +249,10 @@ export default function TransactionList({
                 <button className="px-3 py-1 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors">
                   Bulk Edit
                 </button>
-                <button className="px-3 py-1 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors">
+                <button
+                  onClick={() => onBulkDelete?.(selectedTransactions)}
+                  className="px-3 py-1 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
+                >
                   Delete Selected
                 </button>
                 <button
@@ -299,9 +303,8 @@ export default function TransactionList({
             </div>
           ) : transactions.length === 0 ? (
             <div className="p-12 text-center">
-              <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
-                type === 'income' ? 'bg-green-100' : 'bg-red-100'
-              }`}>
+              <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${type === 'income' ? 'bg-green-100' : 'bg-red-100'
+                }`}>
                 {type === 'income' ? (
                   <TrendingUp className={`h-8 w-8 ${type === 'income' ? 'text-green-600' : 'text-red-600'}`} />
                 ) : (
@@ -312,7 +315,7 @@ export default function TransactionList({
                 No {type} transactions found
               </h3>
               <p className="text-gray-600">
-                {hasActiveFilters 
+                {hasActiveFilters
                   ? 'Try adjusting your search criteria or filters'
                   : `Start by adding your first ${type} transaction`
                 }
@@ -347,9 +350,8 @@ export default function TransactionList({
 
                     {/* Amount */}
                     <div className="col-span-2">
-                      <p className={`font-bold ${
-                        type === 'income' ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <p className={`font-bold ${type === 'income' ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
                       </p>
                     </div>
@@ -424,7 +426,7 @@ export default function TransactionList({
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
-                
+
                 {/* Page numbers */}
                 <div className="flex gap-1">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -433,16 +435,15 @@ export default function TransactionList({
                       page = currentPage - 2 + i
                       if (page > totalPages) page = totalPages - 4 + i
                     }
-                    
+
                     return (
                       <button
                         key={page}
                         onClick={() => onPageChange(page)}
-                        className={`w-8 h-8 text-sm rounded-lg transition-colors ${
-                          currentPage === page
-                            ? 'bg-indigo-600 text-white'
-                            : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                        }`}
+                        className={`w-8 h-8 text-sm rounded-lg transition-colors ${currentPage === page
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                          }`}
                       >
                         {page}
                       </button>

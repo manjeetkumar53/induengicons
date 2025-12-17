@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import AdvancedDataGrid, { GridColumn, GridRow } from './AdvancedDataGrid'
 import QuickCategoryModal from '../modals/QuickCategoryModal'
 import QuickProjectModal from '../modals/QuickProjectModal'
+import { ProjectRow, CategoryRow, TransactionRow } from '@/types/components'
 import {
     TrendingUp,
     TrendingDown,
@@ -35,15 +36,15 @@ interface FilteredTransactionGridProps {
 
 export default function FilteredTransactionGrid({ filterType, userId }: FilteredTransactionGridProps) {
     const [transactions, setTransactions] = useState<Transaction[]>([])
-    const [projects, setProjects] = useState<any[]>([])
-    const [categories, setCategories] = useState<any[]>([])
+    const [projects, setProjects] = useState<ProjectRow[]>([])
+    const [categories, setCategories] = useState<CategoryRow[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
     // Quick creation modals
     const [showCategoryModal, setShowCategoryModal] = useState(false)
     const [showProjectModal, setShowProjectModal] = useState(false)
-    const [pendingTransactionData, setPendingTransactionData] = useState<any>(null)
+    const [pendingTransactionData, setPendingTransactionData] = useState<Record<string, unknown> | null>(null)
 
     // Filter transactions by type
     const filteredTransactions = useMemo(() => {
@@ -91,12 +92,12 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
             const data = await response.json()
 
             // Normalize data
-            const normalizedTransactions = (data.transactions || []).map((t: any, index: number) => ({
+            const normalizedTransactions = (data.transactions || []).map((t: Record<string, unknown> & { _id?: string; id?: string }, index: number) => ({
                 ...t,
-                id: t._id || t.id || `transaction-${index}`,
-                source: t.source || t.vendor || '',
-                category: t.categoryId?.name || t.categoryName || '',
-                project: t.projectId?.name || t.projectName || ''
+                id: String(t._id || t.id || `transaction-${index}`),
+                source: String(t.source || (t as Record<string, unknown>).vendor || ''),
+                category: String((t as any).categoryId?.name || (t as any).categoryName || ''),
+                project: String((t as any).projectId?.name || (t as any).projectName || '')
             }))
 
             setTransactions(normalizedTransactions)
@@ -171,7 +172,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
                 ...(newTransaction.source && { source: newTransaction.source.trim() }),
                 ...(newTransaction.receiptNumber && { receiptNumber: newTransaction.receiptNumber.trim() }),
                 ...(newTransaction.notes && { notes: newTransaction.notes.trim() }),
-                ...(newTransaction.tags && { tags: newTransaction.tags }),
+                ...(newTransaction.tags ? { tags: newTransaction.tags } : {}),
                 ...(userId && { userId })
             }
 
@@ -198,7 +199,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
         }
     }, [userId, projects, categories, filterType])
 
-    const handleCategoryCreated = useCallback((newCategory: any) => {
+    const handleCategoryCreated = useCallback((newCategory: CategoryRow) => {
         setCategories(prev => [...prev, newCategory])
         setShowCategoryModal(false)
 
@@ -209,7 +210,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
         }
     }, [pendingTransactionData, handleAdd])
 
-    const handleProjectCreated = useCallback((newProject: any) => {
+    const handleProjectCreated = useCallback((newProject: ProjectRow) => {
         setProjects(prev => [...prev, newProject])
         setShowProjectModal(false)
 
@@ -249,7 +250,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
 
     const handleEdit = useCallback(async (id: string, updatedData: Partial<Transaction>) => {
         try {
-            const apiData: any = { ...updatedData }
+            const apiData: Record<string, unknown> = { ...updatedData }
 
             if ('source' in updatedData) {
                 apiData.source = updatedData.source
@@ -449,7 +450,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
             width: '120px',
             editable: false,
             sortable: true,
-            render: (value) => value ? new Date(value).toLocaleDateString('en-IN') : '-'
+            render: (value) => value && typeof value === 'string' ? new Date(value).toLocaleDateString('en-IN') : '-'
         }
     ], [categories, projects, filterType])
 
@@ -472,7 +473,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
         paymentMethod: 'cash',
         amount: '',
         description: '',
-        category: categories.length > 0 ? categories[0].name : ''
+        category: ''
     }), [categories, filterType])
 
     const typeLabel = filterType === 'income' ? 'Income' : 'Expense'
@@ -549,7 +550,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
                     setShowCategoryModal(false)
                     setPendingTransactionData(null)
                 }}
-                onSave={handleCategoryCreated}
+                onSave={(n: any) => handleCategoryCreated(n)}
                 defaultType={filterType === 'income' ? 'revenue' : 'expense'}
             />
 
@@ -559,8 +560,8 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
                     setShowProjectModal(false)
                     setPendingTransactionData(null)
                 }}
-                onSave={handleProjectCreated}
-                initialName={pendingTransactionData?.project || ''}
+                onSave={(n: any) => handleProjectCreated(n)}
+                initialName={typeof pendingTransactionData?.project === 'string' ? pendingTransactionData.project : ''}
             />
         </div>
     )

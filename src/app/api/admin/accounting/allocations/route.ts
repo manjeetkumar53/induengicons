@@ -63,19 +63,24 @@ export async function GET(request: NextRequest) {
       .lean()
     
     // Format allocations for frontend
-    const formattedAllocations = allocations.map((allocation: any) => ({
-      id: allocation._id.toString(),
-      sourceTransactionId: allocation.sourceTransactionId._id.toString(),
-      targetProjectId: allocation.targetProjectId._id.toString(),
-      amount: allocation.amount,
-      percentage: allocation.percentage,
-      description: allocation.description,
-      date: allocation.date,
-      sourceDescription: allocation.sourceTransactionId.description,
-      targetProjectName: allocation.targetProjectId.name,
-      createdBy: allocation.createdBy,
-      createdAt: allocation.createdAt
-    }))
+    const formattedAllocations = allocations.map((allocation: Record<string, unknown>) => {
+      const sourceTransaction = allocation.sourceTransactionId as Record<string, unknown>
+      const targetProject = allocation.targetProjectId as Record<string, unknown>
+      
+      return {
+        id: (allocation._id as { toString(): string }).toString(),
+        sourceTransactionId: (sourceTransaction._id as { toString(): string }).toString(),
+        targetProjectId: (targetProject._id as { toString(): string }).toString(),
+        amount: allocation.amount as number,
+        percentage: allocation.percentage as number,
+        description: allocation.description as string,
+        date: allocation.date as Date,
+        sourceDescription: sourceTransaction.description as string,
+        targetProjectName: targetProject.name as string,
+        createdBy: allocation.createdBy as string,
+        createdAt: allocation.createdAt as Date
+      }
+    })
     
     return NextResponse.json({
       success: true,

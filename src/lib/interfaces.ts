@@ -78,7 +78,7 @@ export interface ICompany extends Document {
   projects: Types.ObjectId[]
   status: 'active' | 'inactive'
   tags: string[]
-  metadata: any
+  metadata: Record<string, unknown>
   createdAt: Date
   updatedAt: Date
 }
@@ -164,7 +164,7 @@ export interface IProject extends Document {
     version: number
   }
   
-  customFields: any
+  customFields: Record<string, unknown>
   tags: string[]
   notes: [{
     content: string
@@ -430,15 +430,15 @@ export interface ITransaction extends Document {
     version: number
     changelog: [{
       field: string
-      oldValue: any
-      newValue: any
+      oldValue: unknown
+      newValue: unknown
       changedBy: Types.ObjectId
       changedAt: Date
       reason?: string
     }]
   }
   
-  customFields: any
+  customFields: Record<string, unknown>
   tags: string[]
   notes: [{
     content: string
@@ -536,7 +536,7 @@ export interface IAllocation extends Document {
   }
   
   status: 'active' | 'cancelled' | 'completed'
-  metadata: any
+  metadata: Record<string, unknown>
   tags: string[]
 }
 

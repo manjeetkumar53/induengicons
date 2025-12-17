@@ -111,7 +111,7 @@ export async function PUT(
     }
 
     // Prepare update data
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       name: name.trim(),
       description: description.trim(),
       type,
@@ -161,7 +161,7 @@ export async function PUT(
   } catch (error) {
     console.error('Error updating project:', error)
 
-    if (error instanceof Error && 'code' in error && (error as any).code === 11000) {
+    if (error instanceof Error && 'code' in error && (error as Error & { code: number }).code === 11000) {
       return NextResponse.json(
         { error: 'A project with this code already exists' },
         { status: 409 }

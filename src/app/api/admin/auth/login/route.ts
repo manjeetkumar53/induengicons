@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Authenticate user against MongoDB
-    const user = await authenticateUser({ username, password })
+    const user = await authenticateUser(username, password)
     
     if (!user) {
       return NextResponse.json(

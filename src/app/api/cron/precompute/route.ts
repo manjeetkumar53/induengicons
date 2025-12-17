@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     }
 
     const startTime = Date.now()
-    const results: any[] = []
+    const results: Array<{ report: string; status: 'success' | 'error'; message?: unknown }> = []
 
     try {
         // Get date ranges

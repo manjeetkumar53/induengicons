@@ -137,7 +137,7 @@ export const tools = {
             
             await dbConnect();
 
-            const query: any = {};
+            const query: Record<string, unknown> = {};
             if (type !== 'all') {
                 query.type = type;
             }
@@ -178,7 +178,7 @@ export const tools = {
 
             await dbConnect();
 
-            const matchStage: any = {};
+            const matchStage: Record<string, unknown> = {};
             if (projectName) {
                 // Simple case-insensitive regex match
                 matchStage.projectName = { $regex: new RegExp(projectName, 'i') };
@@ -220,5 +220,156 @@ export const tools = {
             console.log('getProjectSummary result:', result);
             return result;
         },
+    }),
+
+    getBudgetAnalysis: tool({
+        description: 'Analyze budget vs actuals for projects.',
+        inputSchema: z.object({
+            projectId: z.string().optional().describe('Specific project ID to analyze. If omitted, analyzes all active projects.'),
+        }),
+        execute: async ({ projectId }: { projectId?: string }) => {
+            console.log('=== getBudgetAnalysis EXECUTED ===');
+            await dbConnect();
+
+            const matchStage: Record<string, unknown> = {
+                status: 'active'
+            };
+            
+            if (projectId) {
+                matchStage._id = new mongoose.Types.ObjectId(projectId);
+            }
+
+            const projects = await Project.find(matchStage).select('name budget timeline status');
+
+            const analysis = projects.map(p => {
+                const totalBudget = p.budget.totalBudget || 0;
+                const spent = p.budget.spentAmount || 0;
+                const remaining = totalBudget - spent;
+                const percentSpent = totalBudget > 0 ? (spent / totalBudget) * 100 : 0;
+                
+                return {
+                    name: p.name,
+                    totalBudget,
+                    spent,
+                    remaining,
+                    percentSpent: parseFloat(percentSpent.toFixed(2)),
+                    status: percentSpent > 90 ? 'CRITICAL' : percentSpent > 75 ? 'WARNING' : 'OK'
+                };
+            });
+
+            return {
+                analysis: analysis.sort((a, b) => b.percentSpent - a.percentSpent)
+            };
+        }
+    }),
+
+    getCashFlowForecast: tool({
+        description: 'Forecast cash flow based on recent historical data.',
+        inputSchema: z.object({
+            months: z.number().optional().default(3).describe('Number of months to forecast'),
+        }),
+        execute: async ({ months = 3 }: { months?: number }) => {
+            console.log('=== getCashFlowForecast EXECUTED ===');
+            await dbConnect();
+
+            // Get last 6 months of data to calculate average
+            const end = new Date();
+            const start = new Date();
+            start.setMonth(start.getMonth() - 6);
+
+            const transactions = await Transaction.aggregate([
+                {
+                    $match: {
+                        date: { $gte: start, $lte: end }
+                    }
+                },
+                {
+                    $group: {
+                        _id: { 
+                            year: { $year: "$date" }, 
+                            month: { $month: "$date" },
+                            type: "$type"
+                        },
+                        total: { $sum: "$amount" }
+                    }
+                }
+            ]);
+
+            // Calculate monthly averages
+            let totalIncome = 0;
+            let totalExpense = 0;
+            const monthCount = 6;
+
+            transactions.forEach(t => {
+                if (t._id.type === 'income') totalIncome += t.total;
+                if (t._id.type === 'expense') totalExpense += t.total;
+            });
+
+            const avgMonthlyIncome = totalIncome / monthCount;
+            const avgMonthlyExpense = totalExpense / monthCount;
+            const projectedNet = avgMonthlyIncome - avgMonthlyExpense;
+
+            const forecast = [];
+            let currentBalance = 0; // This should ideally come from a real balance check
+
+            for (let i = 1; i <= months; i++) {
+                const date = new Date();
+                date.setMonth(date.getMonth() + i);
+                
+                forecast.push({
+                    month: date.toLocaleString('default', { month: 'long', year: 'numeric' }),
+                    projectedIncome: avgMonthlyIncome,
+                    projectedExpense: avgMonthlyExpense,
+                    projectedNet: projectedNet,
+                    accumulatedBalance: currentBalance + (projectedNet * i)
+                });
+            }
+
+            return {
+                basis: '6-month average',
+                avgMonthlyIncome,
+                avgMonthlyExpense,
+                forecast
+            };
+        }
+    }),
+
+    getVendorAnalysis: tool({
+        description: 'Analyze spending by vendor/source.',
+        inputSchema: z.object({
+            limit: z.number().optional().default(5).describe('Number of top vendors to return'),
+        }),
+        execute: async ({ limit = 5 }: { limit?: number }) => {
+            console.log('=== getVendorAnalysis EXECUTED ===');
+            await dbConnect();
+
+            const vendors = await Transaction.aggregate([
+                {
+                    $match: {
+                        type: 'expense',
+                        source: { $ne: null }
+                    }
+                },
+                {
+                    $group: {
+                        _id: "$source",
+                        totalSpent: { $sum: "$amount" },
+                        transactionCount: { $sum: 1 },
+                        lastTransaction: { $max: "$date" }
+                    }
+                },
+                { $sort: { totalSpent: -1 } },
+                { $limit: limit }
+            ]);
+
+            return {
+                vendors: vendors.map(v => ({
+                    name: v._id,
+                    totalSpent: v.totalSpent,
+                    transactionCount: v.transactionCount,
+                    lastTransaction: v.lastTransaction
+                }))
+            };
+        }
     }),
 };

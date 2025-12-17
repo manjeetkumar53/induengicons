@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { isSetupRequired, createUser } from '@/lib/auth-mongo'
+import { needsInitialSetup, createInitialAdmin } from '@/lib/auth-mongo'
 
 // GET endpoint to check if setup is needed
 export async function GET() {
   try {
-    const needsSetup = await isSetupRequired()
+    const needsSetup = await needsInitialSetup()
 
     return NextResponse.json({
       success: true,
@@ -24,7 +24,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     // Check if admin users already exist
-    const needsSetup = await isSetupRequired()
+    const needsSetup = await needsInitialSetup()
     if (!needsSetup) {
       return NextResponse.json(
         { error: 'Admin users already exist' },
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     const { username, email, password, firstName, lastName, setupKey } = body
 
     // Simple setup protection (in production, use environment variable)
-    if (setupKey !== 'induengicons-admin-setup-2025') {
+    if (setupKey !== process.env.ADMIN_SETUP_KEY) {
       return NextResponse.json(
         { error: 'Invalid setup key' },
         { status: 401 }
@@ -60,19 +60,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Create admin user
-    const adminUser = await createUser({
+    const adminUser = await createInitialAdmin({
       username,
       email,
       password,
       firstName,
-      lastName,
-      role: 'admin',
-      permissions: {
-        projects: 'admin',
-        transactions: 'admin',
-        reports: 'admin',
-        settings: 'admin'
-      }
+      lastName
     })
 
     return NextResponse.json(

@@ -4,11 +4,11 @@ import { Transaction } from '@/lib/models';
 
 export async function GET() {
     try {
-        console.log('=== Testing All AI Tools ===');
+        console.log('=== Testing All AI Tools ===')
         
-        const results: any = {};
+        const results: Record<string, { success: boolean; data?: unknown; error?: string; count?: number; found?: number; projectCount?: number }> = {}
         
-        await dbConnect();
+        await dbConnect()
 
         // Test getProfitLoss functionality directly
         try {
@@ -39,11 +39,12 @@ export async function GET() {
                 margin: income > 0 ? ((income - expenses) / income) * 100 : 0
             };
             
-            results.getProfitLoss = { success: true, data: profitLoss };
-            console.log('✅ getProfitLoss working');
-        } catch (error: any) {
-            results.getProfitLoss = { success: false, error: error.message };
-            console.log('❌ getProfitLoss failed:', error.message);
+            results.getProfitLoss = { success: true, data: profitLoss }
+            console.log('✅ getProfitLoss working')
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            results.getProfitLoss = { success: false, error: errorMessage }
+            console.log('❌ getProfitLoss failed:', errorMessage);
         }
 
         // Test getRecentTransactions functionality directly
@@ -66,11 +67,12 @@ export async function GET() {
                 }))
             };
             
-            results.getRecentTransactions = { success: true, count: recent.transactions.length };
-            console.log('✅ getRecentTransactions working');
-        } catch (error: any) {
-            results.getRecentTransactions = { success: false, error: error.message };
-            console.log('❌ getRecentTransactions failed:', error.message);
+            results.getRecentTransactions = { success: true, count: recent.transactions.length }
+            console.log('✅ getRecentTransactions working')
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            results.getRecentTransactions = { success: false, error: errorMessage }
+            console.log('❌ getRecentTransactions failed:', errorMessage);
         }
 
         // Test getProjectSummary functionality directly
@@ -104,11 +106,12 @@ export async function GET() {
                 }))
             };
             
-            results.getProjectSummary = { success: true, projectCount: projects.projects.length };
-            console.log('✅ getProjectSummary working');
-        } catch (error: any) {
-            results.getProjectSummary = { success: false, error: error.message };
-            console.log('❌ getProjectSummary failed:', error.message);
+            results.getProjectSummary = { success: true, projectCount: projects.projects.length }
+            console.log('✅ getProjectSummary working')
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            results.getProjectSummary = { success: false, error: errorMessage }
+            console.log('❌ getProjectSummary failed:', errorMessage)
         }
 
         // Test searchTransactions functionality directly
@@ -132,9 +135,9 @@ export async function GET() {
 
             const search = {
                 success: true,
-                results: transactions.map((t: any) => ({
-                    id: t._id.toString(),
-                    date: t.date.toISOString().split('T')[0],
+                results: transactions.map((t: Record<string, unknown>) => ({
+                    id: (t._id as { toString(): string }).toString(),
+                    date: t.date instanceof Date ? t.date.toISOString().split('T')[0] : String(t.date),
                     description: t.description,
                     amount: t.amount,
                     type: t.type,
@@ -149,14 +152,15 @@ export async function GET() {
                 }
             };
             
-            results.searchTransactions = { success: true, found: search.results.length };
-            console.log('✅ searchTransactions working');
-        } catch (error: any) {
-            results.searchTransactions = { success: false, error: error.message };
-            console.log('❌ searchTransactions failed:', error.message);
+            results.searchTransactions = { success: true, found: search.results.length }
+            console.log('✅ searchTransactions working')
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            results.searchTransactions = { success: false, error: errorMessage }
+            console.log('❌ searchTransactions failed:', errorMessage)
         }
 
-        const allSuccess = Object.values(results).every((r: any) => r.success);
+        const allSuccess = Object.values(results).every((r) => r.success)
 
         return NextResponse.json({
             success: allSuccess,
@@ -165,11 +169,11 @@ export async function GET() {
             availableTools: ['searchTransactions', 'advancedSearch', 'getProfitLoss', 'getTopExpenses', 'getRecentTransactions', 'getProjectSummary']
         });
 
-    } catch (error: any) {
-        console.error('Tool testing error:', error);
+    } catch (error: unknown) {
+        console.error('Tool testing error:', error)
         return NextResponse.json({
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : 'Unknown error',
             availableTools: ['searchTransactions', 'advancedSearch', 'getProfitLoss', 'getTopExpenses', 'getRecentTransactions', 'getProjectSummary']
         }, { status: 500 });
     }

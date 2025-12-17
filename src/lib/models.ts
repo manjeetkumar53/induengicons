@@ -897,19 +897,72 @@ SimpleAllocationSchema.pre('save', async function (next) {
 // ==================== MODELS EXPORT ====================
 
 // Clear existing models to avoid compilation issues
-const models = ['User', 'Company', 'Project', 'TransactionCategory', 'ExpenseCategory', 'Transaction', 'Allocation']
-models.forEach(modelName => {
-  if (mongoose.models[modelName]) {
-    delete mongoose.models[modelName]
+const models = ['User', 'Company', 'Project', 'TransactionCategory', 'ExpenseCategory', 'Transaction', 'Allocation', 'Contact']
+
+// Prevent overwriting models during hot reload
+// Only delete models if we're explicitly trying to clear cache, otherwise reuse
+// In development, Next.js clears the node module cache but Mongoose keeps its internal cache
+// This led to the "OverwriteModelError"
+
+export const User = mongoose.models.User || mongoose.model<IUser>('User', UserSchema)
+export const Company = mongoose.models.Company || mongoose.model<ICompany>('Company', CompanySchema)
+export const Project = mongoose.models.Project || mongoose.model<IProject>('Project', ProjectSchema)
+export const TransactionCategory = mongoose.models.TransactionCategory || mongoose.model<ITransactionCategory>('TransactionCategory', TransactionCategorySchema)
+export const ExpenseCategory = mongoose.models.ExpenseCategory || mongoose.model<IExpenseCategory>('ExpenseCategory', ExpenseCategorySchema)
+export const Transaction = mongoose.models.Transaction || mongoose.model('Transaction', SimpleTransactionSchema)
+export const Allocation = mongoose.models.Allocation || mongoose.model('Allocation', SimpleAllocationSchema)
+
+// ==================== CONTACT SCHEMA ====================
+
+const ContactSchema = new Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: 100
+  },
+  email: {
+    type: String,
+    required: true,
+    lowercase: true,
+    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+  },
+  phone: {
+    type: String,
+    trim: true,
+    maxlength: 20
+  },
+  company: {
+    type: String,
+    trim: true,
+    maxlength: 100
+  },
+  projectType: {
+    type: String,
+    trim: true,
+    maxlength: 50
+  },
+  message: {
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: 2000
+  },
+  status: {
+    type: String,
+    enum: ['new', 'in_progress', 'responded', 'closed'],
+    default: 'new'
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
 })
 
-export const User = mongoose.model<IUser>('User', UserSchema)
-export const Company = mongoose.model<ICompany>('Company', CompanySchema)
-export const Project = mongoose.model<IProject>('Project', ProjectSchema)
-export const TransactionCategory = mongoose.model<ITransactionCategory>('TransactionCategory', TransactionCategorySchema)
-export const ExpenseCategory = mongoose.model<IExpenseCategory>('ExpenseCategory', ExpenseCategorySchema)
-export const Transaction = mongoose.model('Transaction', SimpleTransactionSchema)
-export const Allocation = mongoose.model('Allocation', SimpleAllocationSchema)
+export const Contact = mongoose.models.Contact || mongoose.model('Contact', ContactSchema)
 
 export { Types }

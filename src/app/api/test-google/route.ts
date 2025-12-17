@@ -17,7 +17,7 @@ export async function GET() {
 
         // Test 2: Simple text generation (no tools)
         const result = await generateText({
-            model: google('gemini-2.0-flash'),
+            model: google('gemini-flash-latest'),
             prompt: 'Say hello in exactly 5 words.'
         })
 
@@ -30,17 +30,10 @@ export async function GET() {
         })
 
     } catch (error: any) {
-        console.error('Google API Test Error:', error)
-        
+        console.error('Test API Error:', error)
         return NextResponse.json({
-            success: false,
             error: error.message || 'Unknown error',
-            details: {
-                name: error.name,
-                cause: error.cause,
-                statusCode: error.statusCode,
-                responseBody: error.responseBody
-            }
-        })
+            details: error.toString()
+        }, { status: 500 })
     }
 }

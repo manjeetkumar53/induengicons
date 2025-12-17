@@ -1,30 +1,15 @@
+import { SignJWT, jwtVerify } from 'jose'
 import bcrypt from 'bcryptjs'
-import * as jwt from 'jsonwebtoken'
-import dbConnect from '@/lib/mongodb'
-import { User } from '@/lib/models'
-import { createClient } from 'redis'
+import dbConnect from './mongodb'
+import { User } from './models'
 
-// JWT secret - in production, this should be a strong secret
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
-const JWT_EXPIRES_IN = '7d'
+// JWT secret from environment
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'your-secret-key'
+)
 
-// Redis client for token caching
-let redisClient: any = null
-
-async function getRedisClient() {
-  if (!redisClient) {
-    redisClient = createClient({
-      url: process.env.REDIS_URL
-    })
-    await redisClient.connect()
-  }
-  return redisClient
-}
-
-export interface LoginCredentials {
-  username: string
-  password: string
-}
+// Remove Redis client for middleware compatibility
+// Redis caching is optional and will be handled elsewhere if needed
 
 export interface AuthUser {
   id: string
@@ -52,80 +37,67 @@ export interface JWTPayload {
 }
 
 /**
- * Hash a password using bcrypt
+ * Generate JWT token
  */
-export async function hashPassword(password: string): Promise<string> {
-  const saltRounds = 12
-  return await bcrypt.hash(password, saltRounds)
-}
-
-/**
- * Verify a password against a hash
- */
-export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
-  return await bcrypt.compare(password, hashedPassword)
-}
-
-/**
- * Generate a JWT token
- */
-export function generateToken(user: AuthUser): string {
+async function generateToken(user: { _id: string; username: string; role: string }): Promise<string> {
   const payload = {
-    userId: user.id,
+    userId: user._id.toString(),
     username: user.username,
     role: user.role
   }
 
-  const options: jwt.SignOptions = {
-    expiresIn: JWT_EXPIRES_IN,
-    issuer: 'induengicons',
-    audience: 'induengicons-users'
-  }
+  const token = await new SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('24h')
+    .sign(JWT_SECRET)
 
-  return jwt.sign(payload, JWT_SECRET, options)
+  return token
 }
 
 /**
- * Verify and decode a JWT token
+ * Verify JWT token
  */
-export function verifyToken(token: string): JWTPayload | null {
+async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
-    const options: jwt.VerifyOptions = {
-      issuer: 'induengicons',
-      audience: 'induengicons-users'
-    }
-    
-    const decoded = jwt.verify(token, JWT_SECRET, options) as JWTPayload
-    return decoded
+    const { payload } = await jwtVerify(token, JWT_SECRET)
+    return payload as unknown as JWTPayload
   } catch (error) {
-    console.error('Token verification failed:', error)
+    console.error('Token verification error:', error)
     return null
   }
 }
 
 /**
- * Authenticate user with username/password
+ * Authenticate user with username/email and password
  */
-export async function authenticateUser(credentials: LoginCredentials): Promise<AuthUser | null> {
+export async function authenticateUser(
+  usernameOrEmail: string, 
+  password: string
+): Promise<AuthUser | null> {
   try {
     await dbConnect()
 
     // Find user by username or email
     const user = await User.findOne({
       $or: [
-        { username: credentials.username },
-        { email: credentials.username }
-      ],
-      status: 'active'
-    }).select('+password') // Include password field
+        { username: usernameOrEmail },
+        { email: usernameOrEmail }
+      ]
+    }).select('+password')
 
     if (!user) {
       return null
     }
 
-    // Verify password
-    const isValidPassword = await verifyPassword(credentials.password, user.password)
+    // Check password
+    const isValidPassword = await bcrypt.compare(password, user.password)
     if (!isValidPassword) {
+      return null
+    }
+
+    // Check if user is active
+    if (user.status !== 'active') {
       return null
     }
 
@@ -134,7 +106,6 @@ export async function authenticateUser(credentials: LoginCredentials): Promise<A
       lastLogin: new Date()
     })
 
-    // Return user data (without password)
     return {
       id: user._id.toString(),
       username: user.username,
@@ -142,7 +113,12 @@ export async function authenticateUser(credentials: LoginCredentials): Promise<A
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
-      permissions: user.permissions,
+      permissions: user.permissions || {
+        projects: 'read',
+        transactions: 'read',
+        reports: 'read',
+        settings: 'read'
+      },
       status: user.status,
       lastLogin: new Date()
     }
@@ -153,30 +129,11 @@ export async function authenticateUser(credentials: LoginCredentials): Promise<A
 }
 
 /**
- * Create a session by generating JWT and caching in Redis
+ * Create session token for authenticated user
  */
 export async function createSession(user: AuthUser): Promise<string> {
   try {
-    // Generate JWT token
-    const token = generateToken(user)
-    
-    // Cache token in Redis with user data for fast access
-    const redis = await getRedisClient()
-    const sessionKey = `session:${user.id}`
-    const sessionData = {
-      userId: user.id,
-      username: user.username,
-      role: user.role,
-      loginTime: new Date().toISOString(),
-      lastActivity: new Date().toISOString()
-    }
-
-    // Store session in Redis with expiration (7 days)
-    await redis.setEx(sessionKey, 7 * 24 * 60 * 60, JSON.stringify(sessionData))
-    
-    // Also store token mapping for quick lookup
-    await redis.setEx(`token:${token}`, 7 * 24 * 60 * 60, user.id)
-
+    const token = await generateToken({ _id: user.id, username: user.username, role: user.role })
     return token
   } catch (error) {
     console.error('Session creation error:', error)
@@ -190,55 +147,15 @@ export async function createSession(user: AuthUser): Promise<string> {
 export async function validateSession(token: string): Promise<AuthUser | null> {
   try {
     // Verify JWT token
-    const payload = verifyToken(token)
+    const payload = await verifyToken(token)
     if (!payload) {
       return null
     }
 
-    // Check if session exists in Redis cache
-    const redis = await getRedisClient()
-    const sessionKey = `session:${payload.userId}`
-    const sessionData = await redis.get(sessionKey)
-
-    if (!sessionData) {
-      // Session not found in cache, validate against database
-      await dbConnect()
-      const user = await User.findById(payload.userId).select('-password')
-      if (!user || user.status !== 'active') {
-        return null
-      }
-
-      // Recreate session in cache
-      const newSessionData = {
-        userId: user._id.toString(),
-        username: user.username,
-        role: user.role,
-        loginTime: new Date().toISOString(),
-        lastActivity: new Date().toISOString()
-      }
-      await redis.setEx(sessionKey, 7 * 24 * 60 * 60, JSON.stringify(newSessionData))
-
-      return {
-        id: user._id.toString(),
-        username: user.username,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        permissions: user.permissions,
-        status: user.status,
-        lastLogin: user.lastLogin
-      }
-    }
-
-    // Update last activity in cache
-    const session = JSON.parse(sessionData)
-    session.lastActivity = new Date().toISOString()
-    await redis.setEx(sessionKey, 7 * 24 * 60 * 60, JSON.stringify(session))
-
-    // Get fresh user data from database
+    // Get user from database
     await dbConnect()
-    const user = await User.findById(payload.userId).select('-password')
+    const user = await User.findById(payload.userId).lean()
+
     if (!user || user.status !== 'active') {
       return null
     }
@@ -250,7 +167,12 @@ export async function validateSession(token: string): Promise<AuthUser | null> {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
-      permissions: user.permissions,
+      permissions: user.permissions || {
+        projects: 'read',
+        transactions: 'read',
+        reports: 'read',
+        settings: 'read'
+      },
       status: user.status,
       lastLogin: user.lastLogin
     }
@@ -265,16 +187,12 @@ export async function validateSession(token: string): Promise<AuthUser | null> {
  */
 export async function destroySession(token: string): Promise<boolean> {
   try {
-    // Decode token to get user ID
-    const payload = verifyToken(token)
+    // JWT tokens are stateless, so we just verify it's valid
+    // In production, you might want to maintain a blacklist
+    const payload = await verifyToken(token)
     if (!payload) {
       return false
     }
-
-    // Remove from Redis cache
-    const redis = await getRedisClient()
-    await redis.del(`session:${payload.userId}`)
-    await redis.del(`token:${token}`)
 
     return true
   } catch (error) {
@@ -284,91 +202,78 @@ export async function destroySession(token: string): Promise<boolean> {
 }
 
 /**
- * Create a new user (admin function)
+ * Get session info from token (without database lookup)
  */
-export async function createUser(userData: {
+export async function getSessionInfo(token: string): Promise<JWTPayload | null> {
+  return await verifyToken(token)
+}
+
+/**
+ * Create initial admin user
+ */
+export async function createInitialAdmin(userData: {
   username: string
   email: string
   password: string
   firstName: string
   lastName: string
-  role?: string
-  permissions?: any
 }): Promise<AuthUser> {
   try {
     await dbConnect()
 
-    // Check if user already exists
-    const existingUser = await User.findOne({
-      $or: [
-        { username: userData.username },
-        { email: userData.email }
-      ]
-    })
-
-    if (existingUser) {
-      throw new Error('User with this username or email already exists')
+    // Check if any users exist
+    const existingUserCount = await User.countDocuments()
+    if (existingUserCount > 0) {
+      throw new Error('Admin user already exists')
     }
 
     // Hash password
-    const hashedPassword = await hashPassword(userData.password)
+    const hashedPassword = await bcrypt.hash(userData.password, 12)
 
-    // Create user
-    const user = await User.create({
+    // Create admin user
+    const adminUser = await User.create({
       username: userData.username,
       email: userData.email,
       password: hashedPassword,
       firstName: userData.firstName,
       lastName: userData.lastName,
-      role: userData.role || 'viewer',
-      permissions: userData.permissions || {
-        projects: 'read',
-        transactions: 'read',
-        reports: 'read',
-        settings: 'read'
+      role: 'admin',
+      permissions: {
+        projects: 'admin',
+        transactions: 'admin',
+        reports: 'admin',
+        settings: 'admin'
       },
-      status: 'active'
+      status: 'active',
+      createdAt: new Date()
     })
 
     return {
-      id: user._id.toString(),
-      username: user.username,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      permissions: user.permissions,
-      status: user.status
+      id: adminUser._id.toString(),
+      username: adminUser.username,
+      email: adminUser.email,
+      firstName: adminUser.firstName,
+      lastName: adminUser.lastName,
+      role: adminUser.role,
+      permissions: adminUser.permissions,
+      status: adminUser.status
     }
   } catch (error) {
-    console.error('User creation error:', error)
+    console.error('Initial admin creation error:', error)
     throw error
   }
 }
 
 /**
- * Check if setup is required (no admin users exist)
+ * Check if initial setup is needed
  */
-export async function isSetupRequired(): Promise<boolean> {
+export async function needsInitialSetup(): Promise<boolean> {
   try {
     await dbConnect()
-    const adminCount = await User.countDocuments({ role: 'admin' })
-    return adminCount === 0
+    const userCount = await User.countDocuments()
+    return userCount === 0
   } catch (error) {
     console.error('Setup check error:', error)
-    return true
+    return false
   }
-}
-
-export default {
-  hashPassword,
-  verifyPassword,
-  generateToken,
-  verifyToken,
-  authenticateUser,
-  createSession,
-  validateSession,
-  destroySession,
-  createUser,
-  isSetupRequired
 }

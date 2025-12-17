@@ -23,7 +23,7 @@ interface Transaction {
     name: string
   }
   category?: {
-    _id: string  
+    _id: string
     name: string
   }
 }
@@ -40,7 +40,7 @@ export default function TransactionManager({ type, userId, onStatsChange }: Tran
   const [error, setError] = useState('')
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [showForm, setShowForm] = useState(false)
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -74,7 +74,7 @@ export default function TransactionManager({ type, userId, onStatsChange }: Tran
       })
 
       const response = await fetch(`/api/admin/accounting/transactions?${params}`)
-      
+
       if (!response.ok) {
         throw new Error('Failed to load transactions')
       }
@@ -135,6 +135,34 @@ export default function TransactionManager({ type, userId, onStatsChange }: Tran
     setShowForm(true)
   }
 
+  const handleBulkDelete = async (transactionIds: string[]) => {
+    if (!confirm(`Are you sure you want to delete ${transactionIds.length} transactions?`)) {
+      return
+    }
+
+    try {
+      const response = await fetch('/api/admin/accounting/transactions/bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'delete',
+          transactionIds
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete transactions')
+      }
+
+      await loadTransactions()
+      onStatsChange?.()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete transactions')
+    }
+  }
+
   const clearFilters = () => {
     setSearchQuery('')
     setDateRange({ start: '', end: '' })
@@ -173,19 +201,17 @@ export default function TransactionManager({ type, userId, onStatsChange }: Tran
                 setEditingTransaction(null)
               }}
             />
-            
+
             {!showForm && (
               <button
                 onClick={() => setShowForm(true)}
-                className={`w-full flex items-center justify-center gap-3 p-6 rounded-2xl border-2 border-dashed transition-all hover:scale-105 ${
-                  type === 'income' 
-                    ? 'border-green-300 text-green-700 hover:border-green-400 hover:bg-green-50'
-                    : 'border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50'
-                }`}
+                className={`w-full flex items-center justify-center gap-3 p-6 rounded-2xl border-2 border-dashed transition-all hover:scale-105 ${type === 'income'
+                  ? 'border-green-300 text-green-700 hover:border-green-400 hover:bg-green-50'
+                  : 'border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50'
+                  }`}
               >
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                  type === 'income' ? 'bg-green-100' : 'bg-red-100'
-                }`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${type === 'income' ? 'bg-green-100' : 'bg-red-100'
+                  }`}>
                   <span className="text-2xl">+</span>
                 </div>
                 <div>
@@ -219,6 +245,7 @@ export default function TransactionManager({ type, userId, onStatsChange }: Tran
             onProjectChange={setSelectedProject}
             selectedCategory={selectedCategory}
             onCategoryChange={setSelectedCategory}
+            onBulkDelete={handleBulkDelete}
           />
         </div>
       </div>

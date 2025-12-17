@@ -48,6 +48,14 @@ const nextConfig: NextConfig = {
   // Webpack optimization
   webpack: (config) => {
     config.resolve.fallback = { fs: false, net: false, tls: false };
+    
+    // Add global polyfill for Edge Runtime compatibility
+    config.plugins.push(
+      new config.webpack.DefinePlugin({
+        global: 'globalThis',
+      })
+    );
+    
     return config;
   },
 };

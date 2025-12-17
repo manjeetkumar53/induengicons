@@ -63,23 +63,25 @@ export async function GET(
             )
         }
 
-        // Cast to any to avoid TS errors with populated fields
-        const alloc = allocation as any;
+        // Cast to Record type to handle populated fields safely
+        const alloc = allocation as Record<string, unknown>
+        const sourceTransaction = alloc.sourceTransactionId as Record<string, unknown>
+        const targetProject = alloc.targetProjectId as Record<string, unknown>
 
         return NextResponse.json({
             success: true,
             allocation: {
-                id: alloc._id.toString(),
-                sourceTransactionId: alloc.sourceTransactionId._id.toString(),
-                targetProjectId: alloc.targetProjectId._id.toString(),
-                amount: alloc.amount,
-                percentage: alloc.percentage,
-                description: alloc.description,
-                date: alloc.date,
-                sourceDescription: alloc.sourceTransactionId.description,
-                targetProjectName: alloc.targetProjectId.name,
-                createdBy: alloc.createdBy,
-                createdAt: alloc.createdAt
+                id: (alloc._id as { toString(): string }).toString(),
+                sourceTransactionId: (sourceTransaction._id as { toString(): string }).toString(),
+                targetProjectId: (targetProject._id as { toString(): string }).toString(),
+                amount: alloc.amount as number,
+                percentage: alloc.percentage as number,
+                description: alloc.description as string,
+                date: alloc.date as Date,
+                sourceDescription: sourceTransaction.description as string,
+                targetProjectName: targetProject.name as string,
+                createdBy: alloc.createdBy as string,
+                createdAt: alloc.createdAt as Date
             }
         })
     } catch (error) {
@@ -112,7 +114,7 @@ export async function PUT(
         }
 
         // Update fields
-        const updateData: any = {}
+        const updateData: Record<string, unknown> = {}
         if (body.amount !== undefined) updateData.amount = parseFloat(body.amount)
         if (body.percentage !== undefined) updateData.percentage = parseFloat(body.percentage)
         if (body.description !== undefined) updateData.description = body.description.trim()
@@ -127,30 +129,32 @@ export async function PUT(
         ).populate('sourceTransactionId', 'description amount type')
             .populate('targetProjectId', 'name')
 
-        // Cast to any to avoid TS errors
-        const alloc = updatedAllocation as any;
+        // Cast to Record type to handle populated fields safely
+        const alloc = updatedAllocation as Record<string, unknown>
+        const sourceTransaction = alloc.sourceTransactionId as Record<string, unknown>
+        const targetProject = alloc.targetProjectId as Record<string, unknown>
 
         return NextResponse.json({
             success: true,
             message: 'Allocation updated successfully',
             allocation: {
-                id: alloc._id.toString(),
-                sourceTransactionId: alloc.sourceTransactionId._id.toString(),
-                targetProjectId: alloc.targetProjectId._id.toString(),
-                amount: alloc.amount,
-                percentage: alloc.percentage,
-                description: alloc.description,
-                date: alloc.date,
-                sourceDescription: alloc.sourceTransactionId.description,
-                targetProjectName: alloc.targetProjectId.name,
-                createdBy: alloc.createdBy,
-                createdAt: alloc.createdAt
+                id: (alloc._id as { toString(): string }).toString(),
+                sourceTransactionId: (sourceTransaction._id as { toString(): string }).toString(),
+                targetProjectId: (targetProject._id as { toString(): string }).toString(),
+                amount: alloc.amount as number,
+                percentage: alloc.percentage as number,
+                description: alloc.description as string,
+                date: alloc.date as Date,
+                sourceDescription: sourceTransaction.description as string,
+                targetProjectName: targetProject.name as string,
+                createdBy: alloc.createdBy as string,
+                createdAt: alloc.createdAt as Date
             }
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error updating allocation:', error)
 
-        if (error.name === 'ValidationError') {
+        if (error && typeof error === 'object' && 'name' in error && error.name === 'ValidationError') {
             return NextResponse.json(
                 { success: false, error: 'Invalid allocation data' },
                 { status: 400 }
