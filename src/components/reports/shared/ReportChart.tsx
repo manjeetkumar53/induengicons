@@ -24,7 +24,7 @@ import { ChartDataPoint } from '@/types/components'
 
 interface ReportChartProps {
     title?: string
-    data: ChartDataPoint[]
+    data: any[]
     type: 'area' | 'bar' | 'line' | 'pie'
     dataKeys: { key: string; color: string; name?: string; stackId?: string }[]
     xAxisKey?: string

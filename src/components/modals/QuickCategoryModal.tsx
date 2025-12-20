@@ -15,16 +15,18 @@ interface QuickCategoryModalProps {
   onClose: () => void
   onSave: (category: Category) => void
   defaultType?: 'revenue' | 'expense'
+  initialName?: string
 }
 
-export default function QuickCategoryModal({ 
-  isOpen, 
-  onClose, 
-  onSave, 
-  defaultType = 'expense' 
+export default function QuickCategoryModal({
+  isOpen,
+  onClose,
+  onSave,
+  defaultType = 'expense',
+  initialName = ''
 }: QuickCategoryModalProps) {
   const [formData, setFormData] = useState({
-    name: '',
+    name: initialName,
     description: '',
     type: defaultType,
     taxCategory: 'taxable',
@@ -97,6 +99,12 @@ export default function QuickCategoryModal({
     })
     setError('')
     onClose()
+  }
+
+  // Update form data when initialName changes or modal opens
+  // This is a simple approach, ideally we use useEffect if props change dynamically
+  if (isOpen && formData.name === '' && initialName && formData.name !== initialName) {
+    setFormData(prev => ({ ...prev, name: initialName }))
   }
 
   if (!isOpen) return null

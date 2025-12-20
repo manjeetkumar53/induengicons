@@ -18,11 +18,11 @@ declare global {
   } | undefined; // This must be a `var` and not a `let / const`
 }
 
-let cached = global.mongoose
-
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null }
+if (!global.mongoose) {
+  global.mongoose = { conn: null, promise: null }
 }
+const cached = global.mongoose
+
 
 async function dbConnect() {
   if (cached.conn) {

@@ -175,27 +175,27 @@ export async function POST(request: NextRequest) {
       expenseCategoryName = expenseCategory.name
     }
 
-    console.log('Creating transaction with data:', {
-      type,
-      amount: numericAmount,
-      description: description.trim(),
-      date: new Date(date),
-      projectId: projectId || undefined,
-      projectName,
-      categoryId: transactionCategoryId,
-      categoryName: transactionCategory.name,
-      expenseCategoryId: expenseCategoryId || undefined,
-      expenseCategoryName,
-      paymentMethod,
-      paymentReference: paymentReference?.trim(),
-      source: source?.trim(),
-      invoiceNumber: invoiceNumber?.trim(),
-      receiptNumber: receiptNumber?.trim(),
-      status: 'approved',
-      createdBy: 'system',
-      notes: notes?.trim(),
-      tags: tags || []
-    })
+    // console.log('Creating transaction with data:', {
+    //   type,
+    //   amount: numericAmount,
+    //   description: description.trim(),
+    //   date: new Date(date),
+    //   projectId: projectId || undefined,
+    //   projectName,
+    //   categoryId: transactionCategoryId,
+    //   categoryName: transactionCategory.name,
+    //   expenseCategoryId: expenseCategoryId || undefined,
+    //   expenseCategoryName,
+    //   paymentMethod,
+    //   paymentReference: paymentReference?.trim(),
+    //   source: source?.trim(),
+    //   invoiceNumber: invoiceNumber?.trim(),
+    //   receiptNumber: receiptNumber?.trim(),
+    //   status: 'approved',
+    //   createdBy: 'system',
+    //   notes: notes?.trim(),
+    //   tags: tags || []
+    // })
 
     // Generate transaction number based on last existing one to avoid duplicates
     const year = new Date().getFullYear()

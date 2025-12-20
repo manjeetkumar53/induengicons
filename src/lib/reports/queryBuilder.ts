@@ -6,7 +6,7 @@ import type { ReportFilters } from './types'
  * Build MongoDB query from report filters
  */
 export function buildTransactionQuery(filters: ReportFilters) {
-    const query: Record<string, unknown> = {}
+    const query: any = {}
 
     // Date range filter (required)
     if (filters.startDate || filters.endDate) {
@@ -63,25 +63,8 @@ export async function queryTransactions(filters: ReportFilters) {
         .lean()
 
     // Normalize data
-    return transactions.map((t: Record<string, unknown> & {
-        _id: unknown;
-        type: string;
-        amount: number;
-        description: string;
-        date: Date;
-        projectId?: { _id: unknown; name: string };
-        projectName?: string;
-        categoryId?: { _id: unknown; name: string };
-        categoryName?: string;
-        expenseCategoryId?: { _id: unknown; name: string };
-        expenseCategoryName?: string;
-        source?: string;
-        paymentMethod: string;
-        receiptNumber?: string;
-        status: string;
-        createdBy: string;
-        createdAt: Date;
-    }) => ({
+    // Normalize data
+    return transactions.map((t: any) => ({
         id: t._id.toString(),
         type: t.type,
         amount: t.amount,
@@ -162,7 +145,7 @@ export function groupByField(
     const grouped = new Map<string, Record<string, unknown>[]>()
 
     transactions.forEach(t => {
-        const key = t[field] || 'Unknown'
+        const key = String(t[field] || 'Unknown')
         if (!grouped.has(key)) {
             grouped.set(key, [])
         }
@@ -173,7 +156,7 @@ export function groupByField(
         [field]: key,
         transactions,
         count: transactions.length,
-        total: transactions.reduce((sum, t) => sum + t.amount, 0)
+        total: transactions.reduce((sum, t) => sum + (t.amount as number || 0), 0)
     }))
 }
 

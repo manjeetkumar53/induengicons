@@ -22,12 +22,12 @@ export async function generateProfitLossReport(
     const transactions = await queryTransactions(filters)
 
     // Separate income and expenses
-    const incomeTransactions = transactions.filter(t => t.type === 'income')
-    const expenseTransactions = transactions.filter(t => t.type === 'expense')
+    const incomeTransactions = transactions.filter((t: any) => t.type === 'income')
+    const expenseTransactions = transactions.filter((t: any) => t.type === 'expense')
 
     // Calculate summary
-    const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0)
-    const totalExpense = expenseTransactions.reduce((sum, t) => sum + t.amount, 0)
+    const totalIncome = incomeTransactions.reduce((sum, t: any) => sum + t.amount, 0)
+    const totalExpense = expenseTransactions.reduce((sum, t: any) => sum + t.amount, 0)
     const netProfit = totalIncome - totalExpense
     const profitMargin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0
 
@@ -36,11 +36,11 @@ export async function generateProfitLossReport(
     const periodGroups = groupByPeriod(transactions, groupBy)
     const breakdown = periodGroups.map(({ period, transactions: periodTrans }) => {
         const income = periodTrans
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0)
+            .filter((t: any) => t.type === 'income')
+            .reduce((sum, t: any) => sum + t.amount, 0)
         const expense = periodTrans
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0)
+            .filter((t: any) => t.type === 'expense')
+            .reduce((sum, t: any) => sum + t.amount, 0)
 
         return {
             period,
@@ -54,7 +54,7 @@ export async function generateProfitLossReport(
     const incomeByCategory = calculatePercentages(
         groupByField(incomeTransactions, 'categoryName')
             .map(group => ({
-                category: group.categoryName,
+                category: String(group.categoryName),
                 amount: group.total,
                 count: group.count
             }))
@@ -64,7 +64,7 @@ export async function generateProfitLossReport(
     const expenseByCategory = calculatePercentages(
         groupByField(expenseTransactions, 'expenseCategoryName')
             .map(group => ({
-                category: group.expenseCategoryName,
+                category: String(group.expenseCategoryName),
                 amount: group.total,
                 count: group.count
             }))
@@ -92,24 +92,24 @@ export async function generateCashFlowReport(
     const transactions = await queryTransactions(filters)
 
     const totalInflow = transactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0)
+        .filter((t: any) => t.type === 'income')
+        .reduce((sum, t: any) => sum + t.amount, 0)
 
     const totalOutflow = transactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0)
+        .filter((t: any) => t.type === 'expense')
+        .reduce((sum, t: any) => sum + t.amount, 0)
 
     // Group by payment method
     const byPaymentMethod = groupByField(transactions, 'paymentMethod').map(group => {
         const inflow = group.transactions
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0)
+            .filter((t: any) => t.type === 'income')
+            .reduce((sum, t: any) => sum + t.amount, 0)
         const outflow = group.transactions
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0)
+            .filter((t: any) => t.type === 'expense')
+            .reduce((sum, t: any) => sum + t.amount, 0)
 
         return {
-            method: group.paymentMethod,
+            method: String(group.paymentMethod),
             inflow,
             outflow,
             net: inflow - outflow,
@@ -124,11 +124,11 @@ export async function generateCashFlowReport(
 
     const byPeriod = periodGroups.map(({ period, transactions: periodTrans }) => {
         const inflow = periodTrans
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0)
+            .filter((t: any) => t.type === 'income')
+            .reduce((sum, t: any) => sum + t.amount, 0)
         const outflow = periodTrans
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0)
+            .filter((t: any) => t.type === 'expense')
+            .reduce((sum, t: any) => sum + t.amount, 0)
 
         cumulative += (inflow - outflow)
 
@@ -162,13 +162,13 @@ export async function generateIncomeSourceReport(
     const incomeFilters = { ...filters, type: 'income' as const }
     const transactions = await queryTransactions(incomeFilters)
 
-    const totalIncome = transactions.reduce((sum, t) => sum + t.amount, 0)
+    const totalIncome = transactions.reduce((sum, t: any) => sum + t.amount, 0)
 
     // Group by source
     const bySources = calculatePercentages(
         groupByField(transactions, 'source')
             .map(group => ({
-                source: group.source,
+                source: String(group.source),
                 amount: group.total,
                 count: group.count,
                 avgTransaction: group.total / group.count
@@ -180,13 +180,13 @@ export async function generateIncomeSourceReport(
     const groupBy = filters.groupBy || 'month'
     const trend = groupByPeriod(transactions, groupBy).map(({ period, transactions: periodTrans }) => ({
         period,
-        amount: periodTrans.reduce((sum, t) => sum + t.amount, 0)
+        amount: periodTrans.reduce((sum, t: any) => sum + t.amount, 0)
     }))
 
     return {
         summary: {
             totalIncome,
-            sourceCount: new Set(transactions.map(t => t.source)).size,
+            sourceCount: new Set(transactions.map((t: any) => t.source)).size,
             avgPerSource: bySources.length > 0
                 ? totalIncome / bySources.length
                 : 0
@@ -205,13 +205,13 @@ export async function generateExpenseCategoryReport(
     const expenseFilters = { ...filters, type: 'expense' as const }
     const transactions = await queryTransactions(expenseFilters)
 
-    const totalExpense = transactions.reduce((sum, t) => sum + t.amount, 0)
+    const totalExpense = transactions.reduce((sum, t: any) => sum + t.amount, 0)
 
     // Group by category
     const byCategory = calculatePercentages(
         groupByField(transactions, 'expenseCategoryName')
             .map(group => ({
-                category: group.expenseCategoryName,
+                category: String(group.expenseCategoryName),
                 amount: group.total,
                 count: group.count,
                 avgTransaction: group.total / group.count
@@ -223,13 +223,13 @@ export async function generateExpenseCategoryReport(
     const groupBy = filters.groupBy || 'month'
     const trend = groupByPeriod(transactions, groupBy).map(({ period, transactions: periodTrans }) => ({
         period,
-        amount: periodTrans.reduce((sum, t) => sum + t.amount, 0)
+        amount: periodTrans.reduce((sum, t: any) => sum + t.amount, 0)
     }))
 
     return {
         summary: {
             totalExpense,
-            categoryCount: new Set(transactions.map(t => t.expenseCategoryName)).size,
+            categoryCount: new Set(transactions.map((t: any) => t.expenseCategoryName)).size,
             avgPerCategory: byCategory.length > 0
                 ? totalExpense / byCategory.length
                 : 0
@@ -248,32 +248,32 @@ export async function generateTransactionSummary(
     const transactions = await queryTransactions(filters)
 
     const totalIncome = transactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0)
+        .filter((t: any) => t.type === 'income')
+        .reduce((sum, t: any) => sum + t.amount, 0)
 
     const totalExpense = transactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0)
+        .filter((t: any) => t.type === 'expense')
+        .reduce((sum, t: any) => sum + t.amount, 0)
 
-    const pendingCount = transactions.filter(t => t.status === 'pending').length
+    const pendingCount = transactions.filter((t: any) => t.status === 'pending').length
 
     const today = new Date().toISOString().split('T')[0]
-    const todayCount = transactions.filter(t =>
+    const todayCount = transactions.filter((t: any) =>
         t.date && t.date.toString().startsWith(today)
     ).length
 
     // Group by status
     const byStatus = groupByField(transactions, 'status')
         .map(group => ({
-            status: group.status,
+            status: String(group.status),
             count: group.count
         }))
 
     // Recent transactions
     const recent = transactions
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 10)
-        .map(t => ({
+        .map((t: any) => ({
             id: t.id,
             type: t.type,
             amount: t.amount,
@@ -291,11 +291,11 @@ export async function generateTransactionSummary(
         },
         byType: {
             income: {
-                count: transactions.filter(t => t.type === 'income').length,
+                count: transactions.filter((t: any) => t.type === 'income').length,
                 amount: totalIncome
             },
             expense: {
-                count: transactions.filter(t => t.type === 'expense').length,
+                count: transactions.filter((t: any) => t.type === 'expense').length,
                 amount: totalExpense
             }
         },

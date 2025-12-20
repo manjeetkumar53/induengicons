@@ -53,7 +53,7 @@ export const tools = {
         execute: async ({ period }: { period: string }) => {
             console.log('=== getProfitLoss EXECUTED ===');
             console.log('Period requested:', period);
-            
+
             await dbConnect();
             const { start, end } = getDateRange(period);
 
@@ -134,7 +134,7 @@ export const tools = {
         execute: async ({ limit = 5, type = 'all' }: { limit?: number; type?: string }) => {
             console.log('=== getRecentTransactions EXECUTED ===');
             console.log('Params:', { limit, type });
-            
+
             await dbConnect();
 
             const query: Record<string, unknown> = {};
@@ -234,7 +234,7 @@ export const tools = {
             const matchStage: Record<string, unknown> = {
                 status: 'active'
             };
-            
+
             if (projectId) {
                 matchStage._id = new mongoose.Types.ObjectId(projectId);
             }
@@ -246,7 +246,7 @@ export const tools = {
                 const spent = p.budget.spentAmount || 0;
                 const remaining = totalBudget - spent;
                 const percentSpent = totalBudget > 0 ? (spent / totalBudget) * 100 : 0;
-                
+
                 return {
                     name: p.name,
                     totalBudget,
@@ -285,8 +285,8 @@ export const tools = {
                 },
                 {
                     $group: {
-                        _id: { 
-                            year: { $year: "$date" }, 
+                        _id: {
+                            year: { $year: "$date" },
                             month: { $month: "$date" },
                             type: "$type"
                         },
@@ -310,12 +310,12 @@ export const tools = {
             const projectedNet = avgMonthlyIncome - avgMonthlyExpense;
 
             const forecast = [];
-            let currentBalance = 0; // This should ideally come from a real balance check
+            const currentBalance = 0; // This should ideally come from a real balance check
 
             for (let i = 1; i <= months; i++) {
                 const date = new Date();
                 date.setMonth(date.getMonth() + i);
-                
+
                 forecast.push({
                     month: date.toLocaleString('default', { month: 'long', year: 'numeric' }),
                     projectedIncome: avgMonthlyIncome,

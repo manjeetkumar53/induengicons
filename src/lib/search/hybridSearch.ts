@@ -35,7 +35,7 @@ export async function hybridSearch(
         const queryEmbedding = await generateEmbedding(query);
 
         // 2. Build match stage for filters
-        const matchStage: Record<string, unknown> = {};
+        const matchStage: any = {};
 
         if (filters.startDate || filters.endDate) {
             matchStage.date = {};
@@ -87,7 +87,7 @@ export async function hybridSearch(
         const resultsMap = new Map();
 
         // Add vector results
-        vectorResults.forEach((result: Record<string, unknown> & { _id: unknown; vectorScore?: number }) => {
+        vectorResults.forEach((result: any) => {
             const id = String(result._id);
             resultsMap.set(id, {
                 ...result,
@@ -98,7 +98,7 @@ export async function hybridSearch(
         });
 
         // Add/merge text results
-        textResults.forEach((result: Record<string, unknown> & { _id?: unknown }) => {
+        textResults.forEach((result: any) => {
             const id = String(result._id);
             const existing = resultsMap.get(id);
 

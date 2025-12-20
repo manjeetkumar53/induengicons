@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { 
-  FileText, 
+import {
+  FileText,
   Filter,
   Download,
   TrendingUp,
@@ -97,7 +97,7 @@ export default function ReportsManager() {
   const [transactionCategories, setTransactionCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [allocations, setAllocations] = useState<Allocation[]>([])
-  
+
   const [reportStats, setReportStats] = useState<ReportStats>({
     totalIncome: 0,
     totalExpense: 0,
@@ -109,7 +109,7 @@ export default function ReportsManager() {
 
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [activeTab, setActiveTab] = useState<'summary' | 'transactions' | 'projects' | 'allocations'>('summary')
+  const [activeTab, setActiveTab] = useState<string>('summary')
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'project'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [searchTerm, setSearchTerm] = useState('')
@@ -180,13 +180,13 @@ export default function ReportsManager() {
           const allocationDate = new Date(allocation.date)
           const startDate = new Date(filters.startDate)
           const endDate = new Date(filters.endDate)
-          
+
           return allocationDate >= startDate && allocationDate <= endDate &&
-                 (!filters.projectId || allocation.targetProjectId === filters.projectId)
+            (!filters.projectId || allocation.targetProjectId === filters.projectId)
         })
-        
+
         setAllocations(filteredAllocations)
-        
+
         // Update allocated amount in stats
         const totalAllocated = filteredAllocations.reduce((sum: number, allocation: Allocation) => sum + allocation.amount, 0)
         setReportStats(prev => ({ ...prev, allocatedAmount: totalAllocated }))
@@ -240,13 +240,13 @@ export default function ReportsManager() {
 
 
   const filteredTransactions = transactions.filter(transaction =>
-    searchTerm === '' || 
+    searchTerm === '' ||
     transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     transaction.projectName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     transaction.transactionCategoryName?.toLowerCase().includes(searchTerm.toLowerCase())
   ).sort((a, b) => {
     let aValue, bValue
-    
+
     switch (sortBy) {
       case 'amount':
         aValue = a.amount
@@ -260,7 +260,7 @@ export default function ReportsManager() {
         aValue = new Date(a.date)
         bValue = new Date(b.date)
     }
-    
+
     if (sortOrder === 'asc') {
       return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
     } else {
@@ -271,11 +271,11 @@ export default function ReportsManager() {
   const projectSummary = projects.map(project => {
     const projectTransactions = transactions.filter(t => t.projectId === project._id)
     const projectAllocations = allocations.filter(a => a.targetProjectId === project._id)
-    
+
     const income = projectTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0)
     const expense = projectTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0)
     const allocated = projectAllocations.reduce((sum, a) => sum + a.amount, 0)
-    
+
     return {
       project,
       income,
@@ -323,7 +323,7 @@ export default function ReportsManager() {
             <p className="text-sm text-gray-600">Comprehensive financial analysis and reporting</p>
           </div>
         </div>
-        
+
         <div className="flex space-x-2">
           <button
             onClick={resetFilters}
@@ -354,7 +354,7 @@ export default function ReportsManager() {
             </div>
           )}
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Date Range */}
           <div>
@@ -366,7 +366,7 @@ export default function ReportsManager() {
               className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
             <input
@@ -529,11 +529,10 @@ export default function ReportsManager() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as 'dashboard' | 'profit-loss' | 'cash-flow' | 'transactions' | 'income-sources' | 'expense-categories')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
-                    activeTab === tab.id
+                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${activeTab === tab.id
                       ? 'border-purple-500 text-purple-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <Icon className="h-4 w-4" />
                   <span>{tab.name}</span>
@@ -610,7 +609,7 @@ export default function ReportsManager() {
                     placeholder="Search transactions..."
                   />
                 </div>
-                
+
                 <div className="flex items-center space-x-2">
                   <select
                     value={sortBy}
@@ -621,7 +620,7 @@ export default function ReportsManager() {
                     <option value="amount">Sort by Amount</option>
                     <option value="project">Sort by Project</option>
                   </select>
-                  
+
                   <button
                     onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
                     className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -638,7 +637,7 @@ export default function ReportsManager() {
                     {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''} found
                   </h4>
                 </div>
-                
+
                 {filteredTransactions.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -667,11 +666,10 @@ export default function ReportsManager() {
                                 ) : (
                                   <TrendingDown className="h-4 w-4 text-red-600 mr-2" />
                                 )}
-                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                  transaction.type === 'income' 
-                                    ? 'bg-green-100 text-green-800' 
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${transaction.type === 'income'
+                                    ? 'bg-green-100 text-green-800'
                                     : 'bg-red-100 text-red-800'
-                                }`}>
+                                  }`}>
                                   {transaction.type.toUpperCase()}
                                 </span>
                               </div>
@@ -725,7 +723,7 @@ export default function ReportsManager() {
                     {projectSummary.length} project{projectSummary.length !== 1 ? 's' : ''} with activity
                   </h4>
                 </div>
-                
+
                 {projectSummary.length > 0 ? (
                   <div className="divide-y divide-gray-200">
                     {projectSummary.map((item) => (
@@ -738,15 +736,14 @@ export default function ReportsManager() {
                             )}
                           </div>
                           <div className="text-right">
-                            <div className={`text-lg font-bold ${
-                              item.net >= 0 ? 'text-green-600' : 'text-red-600'
-                            }`}>
+                            <div className={`text-lg font-bold ${item.net >= 0 ? 'text-green-600' : 'text-red-600'
+                              }`}>
                               ₹{item.net.toLocaleString()}
                             </div>
                             <div className="text-sm text-gray-500">Net Position</div>
                           </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
                             <div className="text-gray-600">Income</div>
@@ -786,7 +783,7 @@ export default function ReportsManager() {
                     {allocations.length} allocation{allocations.length !== 1 ? 's' : ''} found
                   </h4>
                 </div>
-                
+
                 {allocations.length > 0 ? (
                   <div className="divide-y divide-gray-200">
                     {allocations.map((allocation) => (
@@ -797,7 +794,7 @@ export default function ReportsManager() {
                               <Target className="h-4 w-4 text-purple-600" />
                               <h4 className="font-medium text-gray-900">{allocation.description}</h4>
                             </div>
-                            
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
                               <div>
                                 <span className="font-medium">From:</span> {allocation.sourceDescription || 'Income Source'}
@@ -815,7 +812,7 @@ export default function ReportsManager() {
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="text-right">
                             <div className="text-lg font-bold text-purple-600">
                               ₹{allocation.amount.toLocaleString()}

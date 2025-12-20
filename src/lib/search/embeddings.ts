@@ -30,7 +30,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     }
 
     try {
-        const model = await getEmbedder();
+        const model = await getEmbedder() as any;
         const output = await model(text, { pooling: 'mean', normalize: true });
         return Array.from(output.data);
     } catch (error) {

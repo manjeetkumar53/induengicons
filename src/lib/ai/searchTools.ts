@@ -33,22 +33,13 @@ export const searchTransactionsTool = tool({
                     { notes: searchRegex }
                 ]
             })
-            .sort({ date: -1 })
-            .limit(limit)
-            .lean();
+                .sort({ date: -1 })
+                .limit(limit)
+                .lean();
 
             console.log('Found transactions:', transactions.length);
 
-            const results = transactions.map((t: Record<string, unknown> & {
-                _id: unknown;
-                date: Date;
-                description: string;
-                amount: number;
-                type: string;
-                projectName?: string;
-                categoryName?: string;
-                source?: string;
-            }) => ({
+            const results = transactions.map((t: any) => ({
                 id: String(t._id),
                 date: t.date.toISOString().split('T')[0],
                 description: t.description,
@@ -100,7 +91,7 @@ export const advancedSearchTool = tool({
         await dbConnect();
 
         try {
-            const searchQuery: Record<string, unknown> = {};
+            const searchQuery: any = {};
 
             // Text search
             if (query.trim()) {
@@ -134,16 +125,7 @@ export const advancedSearchTool = tool({
 
             console.log('Found transactions:', transactions.length);
 
-            const results = transactions.map((t: Record<string, unknown> & {
-                _id: unknown;
-                date: Date;
-                description: string;
-                amount: number;
-                type: string;
-                projectName?: string;
-                categoryName?: string;
-                source?: string;
-            }) => ({
+            const results = transactions.map((t: any) => ({
                 id: String(t._id),
                 date: t.date.toISOString().split('T')[0],
                 description: t.description,

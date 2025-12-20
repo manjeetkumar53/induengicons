@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { 
-  Edit2, 
-  Save, 
-  X, 
-  Trash2, 
-  Plus, 
+import {
+  Edit2,
+  Save,
+  X,
+  Trash2,
+  Plus,
   Search,
   Filter,
   ChevronLeft,
@@ -17,6 +17,12 @@ import {
   Eye,
   MoreHorizontal
 } from 'lucide-react'
+
+export interface DataGridRow {
+  id?: string
+  _id?: string
+  [key: string]: any
+}
 
 export interface Column {
   key: string
@@ -108,7 +114,7 @@ export default function DataGrid({
       filtered.sort((a, b) => {
         const aValue = a[sortConfig.key]
         const bValue = b[sortConfig.key]
-        
+
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
         return 0
@@ -171,7 +177,7 @@ export default function DataGrid({
 
     setIsDeleting(true)
     try {
-      const rowsToDelete = data.filter(row => selectedRows.has(row.id))
+      const rowsToDelete = data.filter(row => row.id && selectedRows.has(row.id))
       await onBulkDelete(rowsToDelete)
       setSelectedRows(new Set())
     } catch (error) {
@@ -181,7 +187,8 @@ export default function DataGrid({
     }
   }
 
-  const toggleRowSelection = (rowId: string) => {
+  const toggleRowSelection = (rowId: string | undefined) => {
+    if (!rowId) return
     const newSelected = new Set(selectedRows)
     if (newSelected.has(rowId)) {
       newSelected.delete(rowId)
@@ -230,7 +237,7 @@ export default function DataGrid({
             />
           )}
           <button
-            onClick={() => handleEdit(row.id, column.key, editValue)}
+            onClick={() => handleEdit(String(row.id || row._id), column.key, editValue)}
             disabled={isSaving}
             className="p-1 text-green-600 hover:text-green-800"
           >
@@ -267,7 +274,7 @@ export default function DataGrid({
         className={column.editable ? 'cursor-pointer hover:bg-gray-50 px-2 py-1 rounded' : ''}
         onClick={() => {
           if (column.editable && enableEdit) {
-            setEditingCell({ rowId: row.id, field: column.key })
+            setEditingCell({ rowId: String(row.id || row._id), field: column.key })
             setEditValue(value || '')
           }
         }}
@@ -352,7 +359,7 @@ export default function DataGrid({
               />
             </div>
           </div>
-          
+
           {enableBulkActions && selectedRows.size > 0 && (
             <div className="flex items-center space-x-3">
               <span className="text-sm text-gray-600">
@@ -391,9 +398,8 @@ export default function DataGrid({
                 <th
                   key={column.key}
                   style={{ width: column.width }}
-                  className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                    column.sortable ? 'cursor-pointer hover:bg-gray-100' : ''
-                  }`}
+                  className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${column.sortable ? 'cursor-pointer hover:bg-gray-100' : ''
+                    }`}
                   onClick={() => handleSort(column.key)}
                 >
                   <div className="flex items-center space-x-1">
@@ -424,7 +430,7 @@ export default function DataGrid({
                   <td className="px-6 py-4">
                     <input
                       type="checkbox"
-                      checked={selectedRows.has(row.id)}
+                      checked={row.id ? selectedRows.has(row.id) : false}
                       onChange={() => toggleRowSelection(row.id)}
                       className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                     />
@@ -442,11 +448,10 @@ export default function DataGrid({
                         <button
                           key={index}
                           onClick={() => action.action(row)}
-                          className={`p-1 rounded hover:bg-gray-100 ${
-                            action.variant === 'danger' ? 'text-red-600 hover:text-red-800' :
+                          className={`p-1 rounded hover:bg-gray-100 ${action.variant === 'danger' ? 'text-red-600 hover:text-red-800' :
                             action.variant === 'primary' ? 'text-indigo-600 hover:text-indigo-800' :
-                            'text-gray-600 hover:text-gray-800'
-                          }`}
+                              'text-gray-600 hover:text-gray-800'
+                            }`}
                           title={action.label}
                         >
                           {action.icon}

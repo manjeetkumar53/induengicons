@@ -29,7 +29,7 @@ interface AllocationGridProps {
 
 export default function AllocationGrid({ userId }: AllocationGridProps) {
   const [allocations, setAllocations] = useState<Allocation[]>([])
-  const [projects, setProjects] = useState<Record<string, unknown>[]>([])  
+  const [projects, setProjects] = useState<Record<string, unknown>[]>([])
   const [incomeTransactions, setIncomeTransactions] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -111,9 +111,9 @@ export default function AllocationGrid({ userId }: AllocationGridProps) {
       // Map project name to projectId
       let targetProjectId = newAllocation.targetProjectId
       if (!targetProjectId && newAllocation.targetProjectName) {
-        const project = projects.find(p => p.name === newAllocation.targetProjectName)
+        const project = projects.find(p => (p as any).name === newAllocation.targetProjectName)
         if (project) {
-          targetProjectId = project._id
+          targetProjectId = (project as any)._id
         }
       }
 
@@ -121,10 +121,10 @@ export default function AllocationGrid({ userId }: AllocationGridProps) {
       let sourceTransactionId = newAllocation.sourceTransactionId
       if (!sourceTransactionId && newAllocation.sourceDescription) {
         const transaction = incomeTransactions.find(t =>
-          t.description === newAllocation.sourceDescription
+          (t as any).description === newAllocation.sourceDescription
         )
         if (transaction) {
-          sourceTransactionId = transaction._id || transaction.id
+          sourceTransactionId = (transaction as any)._id || (transaction as any).id
         }
       }
 
@@ -175,18 +175,18 @@ export default function AllocationGrid({ userId }: AllocationGridProps) {
       const apiData: Record<string, unknown> = { ...updatedData }
 
       if (updatedData.targetProjectName) {
-        const project = projects.find(p => p.name === updatedData.targetProjectName)
+        const project = projects.find(p => (p as any).name === updatedData.targetProjectName)
         if (project) {
-          apiData.targetProjectId = project._id
+          apiData.targetProjectId = (project as any)._id
         }
       }
 
       if (updatedData.sourceDescription) {
         const transaction = incomeTransactions.find(t =>
-          t.description === updatedData.sourceDescription
+          (t as any).description === updatedData.sourceDescription
         )
         if (transaction) {
-          apiData.sourceTransactionId = transaction._id || transaction.id
+          apiData.sourceTransactionId = (transaction as any)._id || (transaction as any).id
         }
       }
 
@@ -262,8 +262,8 @@ export default function AllocationGrid({ userId }: AllocationGridProps) {
       filterable: true,
       required: true,
       options: incomeTransactions.map(t => ({
-        value: t.description,
-        label: `${t.description} (₹${Number(t.amount).toLocaleString('en-IN')})`
+        value: (t as any).description,
+        label: `${(t as any).description} (₹${Number((t as any).amount).toLocaleString('en-IN')})`
       }))
     },
     {
@@ -275,7 +275,7 @@ export default function AllocationGrid({ userId }: AllocationGridProps) {
       sortable: true,
       filterable: true,
       required: true,
-      options: projects.map(p => ({ value: p.name, label: p.name }))
+      options: projects.map(p => ({ value: (p as any).name, label: (p as any).name }))
     },
     {
       key: 'amount',
@@ -320,7 +320,7 @@ export default function AllocationGrid({ userId }: AllocationGridProps) {
       width: '120px',
       editable: false,
       sortable: true,
-      render: (value) => value ? new Date(value).toLocaleDateString('en-IN') : '-'
+      render: (value) => value ? new Date(value as any).toLocaleDateString('en-IN') : '-'
     }
   ], [projects, incomeTransactions])
 

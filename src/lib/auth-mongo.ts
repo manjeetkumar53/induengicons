@@ -72,7 +72,7 @@ async function verifyToken(token: string): Promise<JWTPayload | null> {
  * Authenticate user with username/email and password
  */
 export async function authenticateUser(
-  usernameOrEmail: string, 
+  usernameOrEmail: string,
   password: string
 ): Promise<AuthUser | null> {
   try {
@@ -154,7 +154,7 @@ export async function validateSession(token: string): Promise<AuthUser | null> {
 
     // Get user from database
     await dbConnect()
-    const user = await User.findById(payload.userId).lean()
+    const user = await User.findById(payload.userId).lean() as any
 
     if (!user || user.status !== 'active') {
       return null

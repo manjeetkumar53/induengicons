@@ -24,10 +24,10 @@ interface ReportsGridProps {
   onExportReport?: (report: ReportData, format: 'pdf' | 'excel') => void
 }
 
-export default function ReportsGrid({ 
-  onGenerateReport, 
+export default function ReportsGrid({
+  onGenerateReport,
   onViewReport,
-  onExportReport 
+  onExportReport
 }: ReportsGridProps) {
   const [reports, setReports] = useState<ReportData[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,7 +54,7 @@ export default function ReportsGrid({
   }
 
   // Handle delete
-  const handleDelete = async (row: ReportData) => {
+  const handleDelete = async (row: any) => {
     if (!confirm('Are you sure you want to delete this report?')) {
       return
     }
@@ -74,14 +74,14 @@ export default function ReportsGrid({
   }
 
   // Handle bulk delete
-  const handleBulkDelete = async (rows: ReportData[]) => {
+  const handleBulkDelete = async (rows: any[]) => {
     if (!confirm(`Are you sure you want to delete ${rows.length} reports?`)) {
       return
     }
 
     try {
       await Promise.all(
-        rows.map(row => 
+        rows.map(row =>
           fetch(`/api/admin/accounting/reports/${row.id}`, {
             method: 'DELETE'
           })
@@ -107,7 +107,7 @@ export default function ReportsGrid({
       sortable: true,
       render: (value) => (
         <div className="font-medium text-gray-900">
-          {value}
+          {value as React.ReactNode}
         </div>
       )
     },
@@ -145,9 +145,8 @@ export default function ReportsGrid({
       editable: false,
       sortable: true,
       render: (value) => (
-        <span className={`font-bold ${
-          Number(value || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-        }`}>
+        <span className={`font-bold ${Number(value || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+          }`}>
           ₹{Number(value || 0).toLocaleString('en-IN')}
         </span>
       )
@@ -161,18 +160,16 @@ export default function ReportsGrid({
       sortable: true,
       render: (value) => (
         <div className="flex items-center space-x-2">
-          <span className={`font-medium ${
-            Number(value || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-          }`}>
+          <span className={`font-medium ${Number(value || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
             {(Number(value || 0)).toFixed(1)}%
           </span>
           <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-16">
             <div
-              className={`h-2 rounded-full ${
-                Number(value || 0) >= 0 ? 'bg-green-500' : 'bg-red-500'
-              }`}
-              style={{ 
-                width: `${Math.min(Math.abs(Number(value || 0)), 100)}%` 
+              className={`h-2 rounded-full ${Number(value || 0) >= 0 ? 'bg-green-500' : 'bg-red-500'
+                }`}
+              style={{
+                width: `${Math.min(Math.abs(Number(value || 0)), 100)}%`
               }}
             />
           </div>
@@ -213,8 +210,8 @@ export default function ReportsGrid({
       editable: false,
       sortable: false,
       render: (value) => (
-        <div className="truncate text-green-700" title={value}>
-          {value || '-'}
+        <div className="truncate text-green-700" title={value as string}>
+          {(value as React.ReactNode) || '-'}
         </div>
       )
     },
@@ -226,8 +223,8 @@ export default function ReportsGrid({
       editable: false,
       sortable: false,
       render: (value) => (
-        <div className="truncate text-red-700" title={value}>
-          {value || '-'}
+        <div className="truncate text-red-700" title={value as string}>
+          {(value as React.ReactNode) || '-'}
         </div>
       )
     },
@@ -238,7 +235,7 @@ export default function ReportsGrid({
       width: '120px',
       editable: false,
       sortable: true,
-      render: (value) => value ? new Date(value).toLocaleDateString('en-IN') : '-'
+      render: (value) => value ? new Date(value as any).toLocaleDateString('en-IN') : '-'
     }
   ]
 
@@ -247,34 +244,34 @@ export default function ReportsGrid({
     {
       label: 'View Report',
       icon: <Eye className="h-4 w-4" />,
-      action: (row: ReportData) => onViewReport?.(row),
+      action: (row: any) => onViewReport?.(row as ReportData),
       variant: 'primary' as const
     },
     {
       label: 'Export PDF',
       icon: <Download className="h-4 w-4" />,
-      action: (row: ReportData) => onExportReport?.(row, 'pdf'),
+      action: (row: any) => onExportReport?.(row as ReportData, 'pdf'),
       variant: 'secondary' as const
     },
     {
       label: 'Export Excel',
       icon: <Download className="h-4 w-4" />,
-      action: (row: ReportData) => onExportReport?.(row, 'excel'),
+      action: (row: any) => onExportReport?.(row as ReportData, 'excel'),
       variant: 'secondary' as const
     }
   ]
 
   // Calculate summary stats
   const totalReports = reports.length
-  const latestReport = reports.sort((a, b) => 
+  const latestReport = reports.sort((a, b) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   )[0]
-  
-  const avgProfit = reports.length > 0 
+
+  const avgProfit = reports.length > 0
     ? reports.reduce((sum, r) => sum + (r.netProfit || 0), 0) / reports.length
     : 0
 
-  const avgMargin = reports.length > 0 
+  const avgMargin = reports.length > 0
     ? reports.reduce((sum, r) => sum + (r.profitMargin || 0), 0) / reports.length
     : 0
 

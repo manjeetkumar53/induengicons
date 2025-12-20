@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(
-      { 
-        success: true, 
+      {
+        success: true,
         message: 'Contact form submitted successfully!',
         id: contactSubmission._id.toString()
       },
@@ -66,7 +66,7 @@ export async function GET() {
       .lean()
 
     // Convert MongoDB _id to id for frontend compatibility
-    const formattedSubmissions = submissions.map(submission => ({
+    const formattedSubmissions = submissions.map((submission: any) => ({
       id: submission._id.toString(),
       name: submission.name,
       email: submission.email,

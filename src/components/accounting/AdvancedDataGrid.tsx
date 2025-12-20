@@ -175,12 +175,12 @@ export default function AdvancedDataGrid({
 
         // Handle dates
         if (sortConfig.key.includes('date') || sortConfig.key.includes('Date')) {
-          aVal = new Date(aVal).getTime()
-          bVal = new Date(bVal).getTime()
+          aVal = new Date(aVal as any).getTime()
+          bVal = new Date(bVal as any).getTime()
         }
 
-        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1
-        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1
+        if ((aVal as any) < (bVal as any)) return sortConfig.direction === 'asc' ? -1 : 1
+        if ((aVal as any) > (bVal as any)) return sortConfig.direction === 'asc' ? 1 : -1
         return 0
       })
     }
@@ -237,9 +237,9 @@ export default function AdvancedDataGrid({
   // Render editable cell
   const renderEditableCell = useCallback((row: GridRow, column: GridColumn) => {
     // Get the current value from editing data if available, otherwise from row
-    const currentValue = editing.mode === 'row' && editing.rowId === row.id && editing.data
+    const currentValue = (editing.mode === 'row' && editing.rowId === row.id && editing.data
       ? editing.data[column.key]
-      : row[column.key]
+      : row[column.key]) as any
 
     if (column.type === 'date') {
       const dateValue = currentValue ? new Date(currentValue).toISOString().split('T')[0] : ''
@@ -340,7 +340,7 @@ export default function AdvancedDataGrid({
 
   // Render display cell
   const renderDisplayCell = useCallback((row: GridRow, column: GridColumn) => {
-    const value = row[column.key]
+    const value = row[column.key] as any
 
     // Custom render function
     if (column.render) {
@@ -737,7 +737,7 @@ const QuickAddRow = ({ columns, defaultValues, onSave, onCancel, isProcessing }:
                 {column.type === 'date' ? (
                   <input
                     type="date"
-                    value={formData[column.key] || ''}
+                    value={(formData[column.key] as any) || ''}
                     onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: e.target.value }))}
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${errors[column.key] ? 'border-red-300' : 'border-gray-300'
                       }`}
@@ -749,7 +749,7 @@ const QuickAddRow = ({ columns, defaultValues, onSave, onCancel, isProcessing }:
                       type="number"
                       step="0.01"
                       min="0"
-                      value={formData[column.key] || ''}
+                      value={(formData[column.key] as any) || ''}
                       onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: Number(e.target.value) }))}
                       className={`w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${errors[column.key] ? 'border-red-300' : 'border-gray-300'
                         }`}
@@ -759,7 +759,7 @@ const QuickAddRow = ({ columns, defaultValues, onSave, onCancel, isProcessing }:
                 ) : column.type === 'creatable-select' ? (
                   <CreatableCombobox
                     options={column.options || []}
-                    value={formData[column.key]}
+                    value={formData[column.key] as any}
                     onChange={(val) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: val }))}
                     onCreate={(val) => {
                       if (column.onCreate) {
@@ -771,7 +771,7 @@ const QuickAddRow = ({ columns, defaultValues, onSave, onCancel, isProcessing }:
                   />
                 ) : column.type === 'select' || column.type === 'badge' ? (
                   <select
-                    value={formData[column.key] || ''}
+                    value={(formData[column.key] as any) || ''}
                     onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: e.target.value }))}
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${errors[column.key] ? 'border-red-300' : 'border-gray-300'
                       }`}
@@ -786,7 +786,7 @@ const QuickAddRow = ({ columns, defaultValues, onSave, onCancel, isProcessing }:
                 ) : (
                   <input
                     type="text"
-                    value={formData[column.key] || ''}
+                    value={(formData[column.key] as any) || ''}
                     onChange={(e) => setFormData((prev: Partial<GridRow>) => ({ ...prev, [column.key]: e.target.value }))}
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${errors[column.key] ? 'border-red-300' : 'border-gray-300'
                       }`}
