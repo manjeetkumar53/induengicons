@@ -45,6 +45,8 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
     const [showCategoryModal, setShowCategoryModal] = useState(false)
     const [showProjectModal, setShowProjectModal] = useState(false)
     const [pendingTransactionData, setPendingTransactionData] = useState<Record<string, unknown> | null>(null)
+    const [pendingCategoryName, setPendingCategoryName] = useState('')
+    const [pendingProjectName, setPendingProjectName] = useState('')
 
     // Filter transactions by type
     const filteredTransactions = useMemo(() => {
@@ -202,6 +204,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
     const handleCategoryCreated = useCallback((newCategory: CategoryRow) => {
         setCategories(prev => [...prev, newCategory])
         setShowCategoryModal(false)
+        setPendingCategoryName('')
 
         if (pendingTransactionData) {
             const updatedData = { ...pendingTransactionData, category: newCategory.name }
@@ -213,6 +216,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
     const handleProjectCreated = useCallback((newProject: ProjectRow) => {
         setProjects(prev => [...prev, newProject])
         setShowProjectModal(false)
+        setPendingProjectName('')
 
         if (pendingTransactionData) {
             const updatedData = { ...pendingTransactionData, project: newProject.name }
@@ -228,6 +232,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
         if (newTransaction.category && !categoryExists) {
             if (confirm(`Category "${newTransaction.category}" doesn't exist. Would you like to create it?`)) {
                 setPendingTransactionData(newTransaction)
+                setPendingCategoryName(newTransaction.category)
                 setShowCategoryModal(true)
                 return
             } else {
@@ -238,6 +243,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
         if (newTransaction.project && !projectExists) {
             if (confirm(`Project "${newTransaction.project}" doesn't exist. Would you like to create it?`)) {
                 setPendingTransactionData(newTransaction)
+                setPendingProjectName(newTransaction.project)
                 setShowProjectModal(true)
                 return
             } else {
@@ -375,7 +381,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
             required: true,
             options: categories.map(c => ({ value: c.name, label: c.name })),
             onCreate: (value) => {
-                setPendingTransactionData({ category: value })
+                setPendingCategoryName(value)
                 setShowCategoryModal(true)
             }
         },
@@ -389,7 +395,7 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
             filterable: true,
             options: projects.map(p => ({ value: p.name, label: p.name })),
             onCreate: (value) => {
-                setPendingTransactionData({ project: value })
+                setPendingProjectName(value)
                 setShowProjectModal(true)
             }
         },
@@ -549,9 +555,11 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
                 onClose={() => {
                     setShowCategoryModal(false)
                     setPendingTransactionData(null)
+                    setPendingCategoryName('')
                 }}
                 onSave={(n: any) => handleCategoryCreated(n)}
                 defaultType={filterType === 'income' ? 'revenue' : 'expense'}
+                initialName={pendingCategoryName}
             />
 
             <QuickProjectModal
@@ -559,9 +567,10 @@ export default function FilteredTransactionGrid({ filterType, userId }: Filtered
                 onClose={() => {
                     setShowProjectModal(false)
                     setPendingTransactionData(null)
+                    setPendingProjectName('')
                 }}
                 onSave={(n: any) => handleProjectCreated(n)}
-                initialName={typeof pendingTransactionData?.project === 'string' ? pendingTransactionData.project : ''}
+                initialName={pendingProjectName}
             />
         </div>
     )
