@@ -13,8 +13,8 @@ console.log('Loading environment variables...')
 if (result.parsed) {
   console.log('✅ Environment variables loaded successfully')
   // Explicitly set the MongoDB URI
-  if (result.parsed.MONGODB_URI) {
-    process.env.MONGODB_URI = result.parsed.MONGODB_URI
+  if (result.parsed.MONGODB_URI || result.parsed.ie_MONGODB_URI) {
+    process.env.MONGODB_URI = result.parsed.MONGODB_URI || result.parsed.ie_MONGODB_URI
   }
   if (result.parsed.REDIS_URL) {
     process.env.REDIS_URL = result.parsed.REDIS_URL

@@ -141,9 +141,11 @@ const ExpenseCategory = mongoose.model('ExpenseCategory', expenseCategorySchema)
 async function seedDatabase() {
   try {
     console.log('🌱 Starting MongoDB seeding...')
-    
+
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI)
+    const uri = process.env.MONGODB_URI || process.env.ie_MONGODB_URI
+    if (!uri) throw new Error('No MongoDB URI found (MONGODB_URI or ie_MONGODB_URI)')
+    await mongoose.connect(uri)
     console.log('✅ Connected to MongoDB')
 
     // Clear existing data
